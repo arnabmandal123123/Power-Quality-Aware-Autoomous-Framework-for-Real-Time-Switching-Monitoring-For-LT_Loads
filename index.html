@@ -514,7 +514,13 @@
 
         <!-- Dashboard Overview -->
         <div id="dashboard-overview" class="mb-6">
-            <h2 class="text-xl font-bold section-title mb-4">Dashboard</h2>
+             <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold section-title">Dashboard</h2>
+                <button id="refresh-btn" class="btn btn-sm flex items-center gap-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h5M20 20v-5h-5M4 4l5 5M20 20l-5-5"></path></svg>
+                    Refresh
+                </button>
+            </div>
             <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 text-center">
                 <!-- Total Devices -->
                 <div class="bg-slate-100 dark:bg-slate-800/50 p-3 rounded-xl shadow-inner">
@@ -815,6 +821,7 @@
                 const loginBtn = document.getElementById('login-btn');
                 const loginBtnText = document.getElementById('login-btn-text');
                 const loginSpinner = document.getElementById('login-spinner');
+                const refreshBtn = document.getElementById('refresh-btn');
 
                 window.handleLogin = () => {
                     // --- FIXED CREDENTIALS ---
@@ -863,6 +870,7 @@
                 // Attach logout function to both buttons
                 logoutBtnDrawer.onclick = showAuth;
                 logoutBtnMain.onclick = showAuth;
+                refreshBtn.onclick = reconnect;
 
                 // Show/Hide Password Logic
                 togglePasswordBtn.addEventListener('click', () => {
@@ -1055,6 +1063,15 @@
                         onSuccess: onConnect,
                         onFailure: onFailure,
                     });
+                }
+                
+                function reconnect() {
+                    addLog("Attempting to reconnect...");
+                    if (client && client.isConnected()) {
+                        client.disconnect();
+                    }
+                    // A small delay to ensure disconnection before reconnecting
+                    setTimeout(connectMqtt, 500);
                 }
                 
                 // --- MQTT Functions ---
@@ -1256,10 +1273,18 @@
                  
                 // --- Speech Synthesis ---
                 function speak(text) {
-                    if ('speechSynthesis' in window) {
+                    // Check if the Android interface is available
+                    if (window.Android && typeof window.Android.speak === 'function') {
+                        // Use the native Android TTS
+                        window.Android.speak(text);
+                    } else if ('speechSynthesis' in window) {
+                        // Fallback to the web Speech Synthesis API
                         const utter = new SpeechSynthesisUtterance(text);
                         utter.lang = 'en-US';
                         window.speechSynthesis.speak(utter);
+                    } else {
+                        // Optional: Log an error if no speech synthesis is available
+                        console.log("Sorry, text-to-speech is not supported on this device.");
                     }
                 }
 
