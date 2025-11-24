@@ -1,0 +1,4672 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="format-detection" content="telephone=no">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>Smart Home Automation</title>
+    <!-- Tailwind CSS CDN - For development/testing only. For production, install via npm -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.1.0/paho-mqtt.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Chart.js Date Adapter for time-based charts -->
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    
+    <!-- Firebase SDK v9+ (Modular) -->
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getFirestore, collection, addDoc, setDoc, doc, getDoc, getDocs, query, orderBy, limit, onSnapshot, deleteDoc, serverTimestamp, updateDoc, where } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+        import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut, sendPasswordResetEmail, updateProfile, updateEmail, updatePassword, setPersistence, browserLocalPersistence, browserSessionPersistence } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+        import { getDatabase, ref as dbRef, onValue, get, push, set, query as dbQuery, orderByChild, startAt, endAt, limitToLast } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
+        import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js';
+        
+        window.firebaseModules = {
+            initializeApp, getFirestore, getAuth, getStorage, getDatabase,
+            signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut,
+            sendPasswordResetEmail, updateProfile, updateEmail, updatePassword,
+            setPersistence, browserLocalPersistence, browserSessionPersistence,
+            collection, addDoc, setDoc, doc, getDoc, getDocs, query, orderBy, limit, onSnapshot, deleteDoc,
+            serverTimestamp, updateDoc, where, ref, uploadBytes, getDownloadURL, deleteObject,
+            dbRef, onValue, get, push, set, dbQuery, orderByChild, startAt, endAt, limitToLast
+        };
+    </script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+        
+        * {
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            box-sizing: border-box;
+        }
+        
+        html {
+            -webkit-text-size-adjust: 100%;
+            -ms-text-size-adjust: 100%;
+            touch-action: manipulation;
+            scroll-behavior: smooth;
+        }
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #e5e7eb 0%, #d1d5db 100%);
+            background-attachment: fixed; /* Prevent background flickering on scroll */
+            color: #1f2937;
+            margin: 0;
+            padding: 0;
+            overflow-x: hidden;
+            width: 100%;
+            min-height: 100vh;
+            /* Improve scroll performance and reduce flickering */
+            -webkit-overflow-scrolling: touch;
+            transform: translateZ(0);
+            -webkit-transform: translateZ(0);
+            will-change: scroll-position;
+        }
+
+        /* Card styling */
+        .card {
+            background: rgba(249, 250, 251, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 1.5rem;
+            box-shadow: 0 10px 40px -10px rgba(55, 65, 81, 0.15);
+            border: 1px solid rgba(209, 213, 219, 0.6);
+            transition: all 0.3s ease;
+            /* Improve rendering performance */
+            transform: translateZ(0);
+            -webkit-transform: translateZ(0);
+            backface-visibility: hidden;
+            -webkit-backface-visibility: hidden;
+        }
+        
+        .card:hover {
+            transform: translateY(-4px) translateZ(0);
+            box-shadow: 0 20px 60px -15px rgba(55, 65, 81, 0.2);
+        }
+
+        /* Button styling */
+        .btn {
+            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+            color: #fff;
+            border-radius: 0.875rem;
+            padding: 0.625rem 1.5rem;
+            font-weight: 600;
+            font-size: 0.95rem;
+            box-shadow: 0 4px 16px 0 rgba(99, 102, 241, 0.3);
+            border: none;
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+        
+        .btn:hover {
+            background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);
+            box-shadow: 0 6px 20px 0 rgba(99, 102, 241, 0.4);
+            transform: translateY(-1px);
+        }
+        
+        .btn:active {
+            transform: translateY(0px) scale(0.98);
+        }
+
+        /* Input styling */
+        input[type="time"], input[type="text"], input[type="email"], input[type="password"], 
+        input[type="date"], textarea, select {
+            background: rgba(243, 244, 246, 0.95);
+            border-radius: 0.75rem;
+            border: 1.5px solid rgba(156, 163, 175, 0.4);
+            font-size: 0.95rem;
+            padding: 0.625rem 0.875rem;
+            color: #1f2937;
+            transition: all 0.2s ease;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+        }
+        
+        input:focus, textarea:focus, select:focus {
+            border-color: #6366f1;
+            outline: none;
+            background: rgba(249, 250, 251, 0.98);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+        }
+
+        /* Mobile-specific input fixes */
+        @media (max-width: 768px) {
+            input[type="email"], input[type="password"], input[type="text"] {
+                font-size: 16px !important; /* Prevents iOS zoom on focus */
+            }
+            
+            /* Ensure auth container is mobile-friendly */
+            #auth-container, #signup-container, #forgot-password-container {
+                width: 100%;
+                min-height: 100vh;
+                padding: 1rem;
+            }
+            
+            /* Make cards responsive */
+            .card {
+                width: 100% !important;
+                max-width: 100% !important;
+                padding: 1.5rem !important;
+            }
+            
+            /* Adjust buttons for mobile */
+            .btn {
+                padding: 0.75rem 1.5rem;
+                font-size: 1rem;
+                touch-action: manipulation;
+                -webkit-tap-highlight-color: transparent;
+            }
+            
+            /* Better mobile form elements */
+            input, textarea, select {
+                width: 100%;
+                max-width: 100%;
+                -webkit-appearance: none;
+                -moz-appearance: none;
+                appearance: none;
+            }
+            
+            /* Reduce animations on mobile for better performance */
+            * {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
+            
+            /* But keep essential transitions */
+            .btn, .toggle-track, input, select, textarea {
+                transition-duration: 0.2s !important;
+            }
+            
+            /* Improve scroll performance on mobile */
+            body, html {
+                -webkit-overflow-scrolling: touch;
+                scroll-behavior: smooth;
+            }
+            
+            /* Disable hover effects on mobile (they cause flickering) */
+            .card:hover {
+                transform: none !important;
+            }
+        }
+
+        /* Toggle Switch */
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 56px;
+            height: 32px;
+            cursor: pointer;
+        }
+        
+        .toggle-checkbox {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        
+        .toggle-track {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, #cbd5e1 0%, #94a3b8 100%);
+            border-radius: 16px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        
+        .toggle-thumb {
+            position: absolute;
+            top: 3px;
+            left: 3px;
+            width: 26px;
+            height: 26px;
+            background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+            border-radius: 50%;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+        }
+        
+        .toggle-checkbox:checked + .toggle-track {
+            background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+            box-shadow: 0 0 20px rgba(34, 197, 94, 0.4);
+        }
+        
+        .toggle-checkbox:checked ~ .toggle-thumb {
+            transform: translateX(24px);
+        }
+
+        /* Fire Alarm Banner */
+        #flame-alarm-banner {
+            animation: pulse-bg 1s infinite;
+            backdrop-filter: blur(12px);
+            box-shadow: 0 8px 32px rgba(220, 38, 38, 0.8);
+            z-index: 100;
+        }
+        
+        @keyframes pulse-bg {
+            0%, 100% { background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%); }
+            50% { background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); }
+        }
+
+        /* Appliance Icons */
+        .appliance-icon {
+            color: #94a3b8;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .icon-on[data-type="light"] .appliance-icon,
+        .icon-on[data-type="other"] .appliance-icon {
+            color: #f59e0b;
+            filter: drop-shadow(0 0 8px rgba(245, 158, 11, 0.8));
+            animation: glow-pulse 2s ease-in-out infinite;
+        }
+        
+        @keyframes glow-pulse {
+            0%, 100% { filter: drop-shadow(0 0 8px rgba(245, 158, 11, 0.8)); }
+            50% { filter: drop-shadow(0 0 12px rgba(245, 158, 11, 1)); }
+        }
+        
+        .icon-on[data-type="fan"] .appliance-icon {
+            color: #38bdf8;
+            filter: drop-shadow(0 0 12px rgba(56, 189, 248, 0.8));
+            animation: spin 1.5s linear infinite, fan-glow 2s ease-in-out infinite;
+        }
+        
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        
+        @keyframes fan-glow {
+            0%, 100% { filter: drop-shadow(0 0 12px rgba(56, 189, 248, 0.8)); }
+            50% { filter: drop-shadow(0 0 16px rgba(56, 189, 248, 1)); }
+        }
+
+        /* Card States */
+        .card-on {
+            border-color: rgba(245, 158, 11, 0.5);
+            background: linear-gradient(135deg, rgba(249, 250, 251, 0.7) 0%, rgba(254, 243, 199, 0.3) 100%);
+            box-shadow: 0 0 25px rgba(245, 158, 11, 0.25);
+        }
+
+        /* Drawer styles */
+        .drawer {
+            transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 4px 0 40px rgba(0, 0, 0, 0.2);
+        }
+        
+        .drawer-closed {
+            transform: translateX(-100%);
+        }
+        
+        .drawer-open {
+            transform: translateX(0);
+        }
+
+        /* Accordion */
+        .accordion-toggle {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+            padding: 0.875rem 1rem;
+            font-weight: 600;
+            color: #4338ca;
+            background: linear-gradient(135deg, rgba(238, 242, 255, 0.8) 0%, rgba(224, 231, 255, 0.6) 100%);
+            border-radius: 0.75rem;
+            transition: all 0.3s ease;
+            border: 1px solid rgba(199, 210, 254, 0.5);
+        }
+        
+        .accordion-toggle:hover {
+            background: linear-gradient(135deg, rgba(224, 231, 255, 0.9) 0%, rgba(199, 210, 254, 0.7) 100%);
+            transform: translateY(-2px);
+        }
+        
+        .accordion-content {
+            overflow: hidden;
+            transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            max-height: 0;
+        }
+
+        /* Navigation tabs */
+        .nav-tab {
+            background: transparent;
+            color: #6b7280;
+            border: none;
+            cursor: pointer;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.75rem;
+            transition: all 0.2s ease;
+        }
+
+        .nav-tab:hover {
+            color: #4b5563;
+            background: rgba(99, 102, 241, 0.1);
+        }
+
+        .nav-tab.active {
+            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+            color: #ffffff;
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
+        }
+
+        /* Hidden class */
+        .hidden {
+            display: none !important;
+        }
+
+        /* Chart container */
+        .chart-container {
+            position: relative;
+            height: 250px;
+            background: rgba(249, 250, 251, 0.8);
+            border-radius: 1rem;
+            padding: 1rem;
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: rgba(148, 163, 184, 0.1);
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+            border-radius: 4px;
+        }
+
+        /* Fade in animation */
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .fade-in {
+            animation: fadeIn 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+            opacity: 0;
+        }
+
+        /* Sensor Cards Styling */
+        .sensor-card {
+            background: linear-gradient(135deg, rgba(249, 250, 251, 0.95) 0%, rgba(243, 244, 246, 0.95) 100%);
+            backdrop-filter: blur(10px);
+            border-radius: 1.5rem;
+            padding: 1.5rem;
+            box-shadow: 0 10px 40px -10px rgba(55, 65, 81, 0.15);
+            border: 1px solid rgba(209, 213, 219, 0.6);
+            transition: all 0.3s ease;
+        }
+
+        .sensor-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 20px 60px -15px rgba(55, 65, 81, 0.2);
+        }
+
+        .sensor-value-big {
+            font-size: 3rem;
+            font-weight: bold;
+            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .sensor-icon {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .trend-indicator {
+            display: inline-block;
+            margin-left: 0.5rem;
+            font-size: 0.875rem;
+            font-weight: 600;
+        }
+
+        .trend-up { color: #ef4444; }
+        .trend-down { color: #10b981; }
+        .trend-stable { color: #6b7280; }
+
+        .motion-pulse {
+            animation: motion-pulse 1.5s ease-in-out infinite;
+        }
+
+        @keyframes motion-pulse {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.1); opacity: 0.8; }
+        }
+
+        .gas-alarm-active {
+            background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%) !important;
+            color: white !important;
+            animation: pulse-bg 1s infinite;
+        }
+    </style>
+</head>
+<body class="bg-slate-50">
+
+    <!-- Fire Alarm Banner -->
+    <div id="flame-alarm-banner" class="hidden fixed top-0 left-0 right-0 z-[100] text-white text-center py-5 px-4">
+        <div class="text-3xl font-extrabold">🔥 FIRE ALARM TRIGGERED! 🔥</div>
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toast-container" class="fixed top-6 right-6 z-50 flex flex-col gap-2"></div>
+
+    <!-- Drawer Backdrop -->
+    <div id="drawer-backdrop" class="fixed inset-0 bg-black bg-opacity-50 z-40 hidden"></div>
+    
+    <!-- Drawer Menu -->
+    <aside id="drawer" class="fixed top-0 left-0 h-full w-80 bg-white shadow-2xl z-50 drawer drawer-closed flex flex-col">
+        <div class="flex items-center justify-between px-4 py-3 border-b border-gray-200">
+            <span class="text-base font-bold text-indigo-700">Menu</span>
+            <button id="drawer-close" class="text-gray-500 hover:text-indigo-600 text-xl">&times;</button>
+        </div>
+
+        <div class="flex-1 overflow-y-auto p-3 space-y-2">
+            <!-- Profile Section -->
+            <div class="accordion-item">
+                <button class="accordion-toggle" data-accordion="profile">
+                    <span>My Profile</span>
+                    <svg class="w-5 h-5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                    </svg>
+                </button>
+                <div class="accordion-content" id="accordion-profile">
+                    <div class="pt-3 pb-2">
+                        <div class="flex flex-col items-center mb-4">
+                            <img id="profile-photo" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Crect fill='%236366f1' width='100' height='100'/%3E%3Ctext x='50%25' y='50%25' font-size='40' fill='%23fff' text-anchor='middle' dy='.3em'%3E👤%3C/text%3E%3C/svg%3E" 
+                                 class="w-20 h-20 rounded-full border-4 border-indigo-500">
+                            <h3 id="profile-display-name" class="mt-2 text-lg font-bold text-indigo-700">Loading...</h3>
+                            <p id="profile-email" class="text-sm text-gray-600">Loading...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- About Section -->
+            <div class="accordion-item">
+                <button class="accordion-toggle" data-accordion="about">
+                    <span>📖 About</span>
+                    <svg class="w-5 h-5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                    </svg>
+                </button>
+                <div class="accordion-content" id="accordion-about">
+                    <div class="pt-3 pb-2 text-sm text-gray-700 space-y-3">
+                        <div>
+                            <h3 class="font-bold text-base text-indigo-700 mb-2">Smart Home Automation System</h3>
+                            <p class="text-gray-600">A comprehensive IoT-based home automation solution that enables remote monitoring and control of electrical appliances, environmental sensors, and power consumption from anywhere in the world.</p>
+                        </div>
+                        
+                        <div>
+                            <p class="font-semibold text-gray-800 mb-1">🎯 Key Features:</p>
+                            <ul class="list-disc list-inside pl-2 text-xs space-y-1 text-gray-600">
+                                <li>Real-time device control (4 Lights + 2 Fans)</li>
+                                <li>Live power monitoring with PZEM-004T</li>
+                                <li>Environmental monitoring (Temperature, Humidity, Gas)</li>
+                                <li>Fire alarm system with multi-device alerts</li>
+                                <li>Voice control integration</li>
+                                <li>IR remote control support</li>
+                                <li>Real-time analytics and insights</li>
+                                <li>Multi-user access with authentication</li>
+                                <li>Cross-platform compatibility</li>
+                            </ul>
+                        </div>
+                        
+                        <div>
+                            <p class="font-semibold text-gray-800 mb-1">🔧 Technology Stack:</p>
+                            <ul class="list-disc list-inside pl-2 text-xs space-y-1 text-gray-600">
+                                <li><strong>Microcontrollers:</strong> ESP8266 (WiFi), Arduino Nano</li>
+                                <li><strong>Sensors:</strong> DHT22, MQ-2, PIR, Flame Sensor, PZEM-004T</li>
+                                <li><strong>Communication:</strong> MQTT Protocol (HiveMQ), I2C</li>
+                                <li><strong>Backend:</strong> Firebase (Realtime DB + Firestore + Auth)</li>
+                                <li><strong>Frontend:</strong> HTML5, CSS3, JavaScript (ES6+)</li>
+                                <li><strong>UI Framework:</strong> Tailwind CSS</li>
+                                <li><strong>Charts:</strong> Chart.js with real-time updates</li>
+                                <li><strong>APIs:</strong> Web Speech API, Web Audio API</li>
+                            </ul>
+                        </div>
+                        
+                        <div>
+                            <p class="font-semibold text-gray-800 mb-1">⚡ Power Monitoring:</p>
+                            <ul class="list-disc list-inside pl-2 text-xs space-y-1 text-gray-600">
+                                <li>PZEM-004T AC Power Monitor</li>
+                                <li>Voltage, Current, Power, Energy tracking</li>
+                                <li>Real-time analytics with historical data</li>
+                                <li>Energy cost calculation</li>
+                            </ul>
+                        </div>
+                        
+                        <div>
+                            <p class="font-semibold text-gray-800 mb-1">🔐 Security Features:</p>
+                            <ul class="list-disc list-inside pl-2 text-xs space-y-1 text-gray-600">
+                                <li>Firebase Authentication with email/password</li>
+                                <li>Password reset functionality</li>
+                                <li>Secure MQTT communication</li>
+                                <li>Activity logging system</li>
+                            </ul>
+                        </div>
+                        
+                        <div class="pt-2 border-t border-gray-200">
+                            <p class="text-xs text-gray-500 italic">Developed with ❤️ for modern smart homes</p>
+                            <p class="text-xs text-gray-500 mt-1">Version 2.0 | November 2025</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Project Team Section -->
+            <div class="accordion-item">
+                <button class="accordion-toggle" data-accordion="team">
+                    <span>👥 Project Team</span>
+                    <svg class="w-5 h-5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                    </svg>
+                </button>
+                <div class="accordion-content" id="accordion-team">
+                    <div class="pt-3 pb-2 text-sm text-gray-700 space-y-4">
+                        <!-- Team Member 1: Piku -->
+                        <div class="flex items-center gap-3 p-3 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl border border-indigo-100">
+                            <div class="flex-shrink-0">
+                                <img src="./piku.jpg" alt="Piku Mandal" class="w-16 h-16 rounded-full object-cover border-2 border-indigo-300 shadow-md" onerror="this.onerror=null; this.src='data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%27100%27 height=%27100%27%3E%3Crect fill=%27%236366f1%27 width=%27100%27 height=%27100%27/%3E%3Ctext x=%2750%25%27 y=%2750%25%27 font-size=%2740%27 fill=%27%23fff%27 text-anchor=%27middle%27 dy=%27.3em%27%3EP%3C/text%3E%3C/svg%3E';">
+                            </div>
+                            <div class="flex-1">
+                                <h4 class="font-bold text-base text-indigo-700">Piku Mandal</h4>
+                                <p class="text-xs text-gray-600 mb-1">Lead Developer & Hardware Engineer</p>
+                                <p class="text-xs text-gray-500 mb-1">B.Tech, Electrical Engineering</p>
+                                <div class="flex items-center gap-2 text-xs">
+                                    <a href="mailto:pikumandal5233@gmail.com" class="text-indigo-600 hover:text-indigo-800 flex items-center gap-1">
+                                        <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                            <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z"></path>
+                                            <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z"></path>
+                                        </svg>
+                                        Email
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Team Member 2: Arnab -->
+                        <div class="flex items-center gap-3 p-3 bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl border border-purple-100">
+                            <div class="flex-shrink-0">
+                                <img src="./arnab.jpg" alt="Arnab Mandal" class="w-16 h-16 rounded-full object-cover border-2 border-purple-300 shadow-md" onerror="this.onerror=null; this.src='data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%27100%27 height=%27100%27%3E%3Crect fill=%27%238b5cf6%27 width=%27100%27 height=%27100%27/%3E%3Ctext x=%2750%25%27 y=%2750%25%27 font-size=%2740%27 fill=%27%23fff%27 text-anchor=%27middle%27 dy=%27.3em%27%3EA%3C/text%3E%3C/svg%3E';">
+                            </div>
+                            <div class="flex-1">
+                                <h4 class="font-bold text-base text-purple-700">Arnab Mandal</h4>
+                                <p class="text-xs text-gray-600 mb-1">Frontend Developer & IoT Specialist</p>
+                                <p class="text-xs text-gray-500 mb-1">Diploma, Electrical Engineering</p>
+                                <div class="flex items-center gap-2 text-xs">
+                                    <a href="mailto:arnabmandal123123@gmail.com" class="text-purple-600 hover:text-purple-800 flex items-center gap-1">
+                                        <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                            <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z"></path>
+                                            <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z"></path>
+                                        </svg>
+                                        Email
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="pt-2 border-t border-gray-200">
+                            <p class="text-xs text-gray-500 italic text-center">Building the future of smart homes 🚀</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Feedback Section -->
+            <div class="accordion-item">
+                <button class="accordion-toggle" data-accordion="feedback">
+                    <span>💬 Feedback</span>
+                    <svg class="w-5 h-5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                    </svg>
+                </button>
+                <div class="accordion-content" id="accordion-feedback">
+                    <div class="pt-3 pb-2">
+                        <p class="text-sm text-gray-600 mb-3">We'd love to hear your thoughts! Share your feedback with us.</p>
+                        
+                        <form id="feedback-form" class="space-y-3">
+                            <div>
+                                <label class="block text-xs font-semibold mb-1 text-gray-700">Your Name</label>
+                                <input type="text" id="feedback-name" required placeholder="Enter your name" class="w-full text-sm">
+                            </div>
+                            
+                            <div>
+                                <label class="block text-xs font-semibold mb-1 text-gray-700">Your Email</label>
+                                <input type="email" id="feedback-email" required placeholder="your.email@example.com" class="w-full text-sm">
+                            </div>
+                            
+                            <div>
+                                <label class="block text-xs font-semibold mb-1 text-gray-700">Subject</label>
+                                <select id="feedback-subject" class="w-full text-sm">
+                                    <option value="General Feedback">General Feedback</option>
+                                    <option value="Bug Report">Bug Report</option>
+                                    <option value="Feature Request">Feature Request</option>
+                                    <option value="Technical Support">Technical Support</option>
+                                    <option value="Collaboration">Collaboration Inquiry</option>
+                                    <option value="Other">Other</option>
+                                </select>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-xs font-semibold mb-1 text-gray-700">Message</label>
+                                <textarea id="feedback-message" rows="4" required placeholder="Share your thoughts, suggestions, or issues..." class="w-full text-sm resize-none"></textarea>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-xs font-semibold mb-1 text-gray-700">Send To</label>
+                                <div class="flex gap-2">
+                                    <label class="flex items-center gap-1 text-xs">
+                                        <input type="checkbox" id="send-to-piku" checked class="w-3 h-3 text-indigo-600 rounded">
+                                        <span class="text-gray-700">Piku</span>
+                                    </label>
+                                    <label class="flex items-center gap-1 text-xs">
+                                        <input type="checkbox" id="send-to-arnab" checked class="w-3 h-3 text-purple-600 rounded">
+                                        <span class="text-gray-700">Arnab</span>
+                                    </label>
+                                </div>
+                            </div>
+                            
+                            <button type="submit" class="btn w-full text-sm py-2">
+                                <span class="flex items-center justify-center gap-2">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+                                    </svg>
+                                    Send Feedback via Gmail
+                                </span>
+                            </button>
+                        </form>
+                        
+                        <div class="mt-3 pt-3 border-t border-gray-200">
+                            <p class="text-xs text-gray-500 text-center">Your feedback helps us improve! 🌟</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="p-4 border-t border-gray-200">
+            <button id="logout-btn" class="w-full btn">Logout</button>
+        </div>
+    </aside>
+
+    <!-- Menu Button -->
+    <button id="drawer-open" class="fixed top-4 left-4 z-30 bg-white rounded-full shadow-xl p-3 hover:bg-gray-50">
+        <svg class="w-6 h-6 text-indigo-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+        </svg>
+    </button>
+
+    <!-- Auth Container -->
+    <div id="auth-container" class="flex items-center justify-center min-h-screen p-4">
+        <div class="card w-full max-w-md p-8">
+            <h1 class="text-3xl font-bold text-center mb-6 text-indigo-700">Smart Home</h1>
+            
+            <!-- Login Form -->
+            <form id="login-form" autocomplete="on">
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-2">Email</label>
+                    <input type="email" id="login-email" name="email" autocomplete="email" required placeholder="email@example.com" inputmode="email">
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-2">Password</label>
+                    <input type="password" id="login-password" name="password" autocomplete="current-password" required placeholder="••••••••">
+                </div>
+                <div class="mb-6 flex items-center">
+                    <input type="checkbox" id="remember-me" class="w-4 h-4 text-indigo-600 bg-gray-100 border-gray-300 rounded focus:ring-indigo-500 focus:ring-2">
+                    <label for="remember-me" class="ml-2 text-sm text-gray-700">
+                        Remember me <span class="text-xs text-gray-500">(Stay logged in)</span>
+                    </label>
+                </div>
+                <button type="submit" class="btn w-full">Login</button>
+            </form>
+            
+            <!-- Mobile-specific help text -->
+            <div id="mobile-help" class="mt-3 p-2 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-700 hidden">
+                📱 <strong>Mobile Tip:</strong> Uncheck "Remember me" for better mobile experience. You'll need to login again after closing your browser.
+            </div>
+            
+            <div class="flex justify-between items-center mt-4 text-sm">
+                <button id="forgot-password-btn" class="text-indigo-600 hover:text-indigo-800 font-semibold">
+                    Forgot Password?
+                </button>
+                <p class="text-gray-600">
+                    Don't have an account? <button id="switch-to-signup" class="text-indigo-600 font-semibold">Sign Up</button>
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Forgot Password Form (Hidden) -->
+    <div id="forgot-password-container" class="hidden flex items-center justify-center min-h-screen p-4">
+        <div class="card w-full max-w-md p-8">
+            <h1 class="text-3xl font-bold text-center mb-2 text-indigo-700">Reset Password</h1>
+            <p class="text-center text-gray-600 mb-6 text-sm">Enter your email to receive a password reset link</p>
+            
+            <form id="forgot-password-form">
+                <div class="mb-6">
+                    <label class="block text-sm font-medium mb-2">Email</label>
+                    <input type="email" id="reset-email" required placeholder="email@example.com">
+                </div>
+                <button type="submit" class="btn w-full">Send Reset Link</button>
+            </form>
+            
+            <p class="text-center mt-4 text-sm text-gray-600">
+                Remember your password? <button id="switch-to-login-from-forgot" class="text-indigo-600 font-semibold">Login</button>
+            </p>
+        </div>
+    </div>
+
+    <!-- Signup Form (Hidden) -->
+    <div id="signup-container" class="hidden flex items-center justify-center min-h-screen p-4">
+        <div class="card w-full max-w-md p-8">
+            <h1 class="text-3xl font-bold text-center mb-6 text-indigo-700">Create Account</h1>
+            
+            <form id="signup-form" autocomplete="on">
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-2">Name</label>
+                    <input type="text" id="signup-name" name="name" autocomplete="name" required placeholder="Your Name" inputmode="text">
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-2">Email</label>
+                    <input type="email" id="signup-email" name="email" autocomplete="email" required placeholder="email@example.com" inputmode="email">
+                </div>
+                <div class="mb-6">
+                    <label class="block text-sm font-medium mb-2">Password</label>
+                    <input type="password" id="signup-password" name="password" autocomplete="new-password" required placeholder="••••••••">
+                </div>
+                <button type="submit" class="btn w-full">Sign Up</button>
+            </form>
+            
+            <p class="text-center mt-4 text-sm text-gray-600">
+                Already have an account? <button id="switch-to-login" class="text-indigo-600 font-semibold">Login</button>
+            </p>
+        </div>
+    </div>
+
+    <!-- Main App -->
+    <main id="main-app" class="hidden w-full max-w-6xl mx-auto p-4 space-y-6">
+        
+        <!-- Header -->
+        <div class="card p-6">
+            <div class="flex justify-between items-center">
+                <div>
+                    <h1 class="text-2xl font-bold text-indigo-700">Smart Home</h1>
+                    <p class="text-gray-600" id="greeting-text">Welcome back!</p>
+                </div>
+                <div class="flex items-center gap-4">
+                    <div class="text-right">
+                        <div class="text-xl font-bold" id="current-time">00:00:00</div>
+                        <div class="text-sm text-gray-600" id="current-date">Loading...</div>
+                    </div>
+                    <div id="connection-status" class="flex items-center gap-2">
+                        <div class="w-3 h-3 rounded-full bg-red-500"></div>
+                        <span class="text-sm font-semibold text-red-500">Offline</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Navigation Tabs -->
+        <div class="flex gap-2 bg-white rounded-xl p-2 shadow">
+            <button class="nav-tab active" data-page="dashboard">
+                <svg class="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
+                </svg>
+                Dashboard
+            </button>
+            <button class="nav-tab" data-page="analytics">
+                <svg class="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                </svg>
+                Analytics
+            </button>
+            <button class="nav-tab" data-page="logs">
+                <svg class="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                </svg>
+                Logs
+            </button>
+        </div>
+
+        <!-- Dashboard Page -->
+        <div id="page-dashboard" class="space-y-6">
+            
+            <!-- Gas Alarm Banner -->
+            <div id="gas-alarm-banner" class="hidden bg-red-600 text-white p-6 rounded-2xl shadow-xl">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h3 class="text-2xl font-bold flex items-center">
+                            <svg class="w-8 h-8 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                            </svg>
+                            GAS ALERT!
+                        </h3>
+                        <p id="gas-alarm-message" class="mt-2">High gas concentration detected. Please ventilate the area immediately.</p>
+                    </div>
+                    <button onclick="acknowledgeGasAlarm()" class="btn bg-white text-red-600 hover:bg-gray-100">
+                        Acknowledge
+                    </button>
+                </div>
+            </div>
+
+            <!-- Real-time Sensor Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                
+                <!-- Temperature Card -->
+                <div class="sensor-card">
+                    <div class="sensor-icon text-red-500">🌡️</div>
+                    <h3 class="text-lg font-semibold text-gray-700 mb-2">Temperature</h3>
+                    <div class="sensor-value-big" id="sensor-temperature">--°C</div>
+                    <div class="text-sm text-gray-600 mt-2">
+                        Room Temperature
+                        <span id="temp-trend" class="trend-indicator"></span>
+                    </div>
+                    <div class="text-xs text-gray-500 mt-2" id="temp-update">Last update: --</div>
+                </div>
+
+                <!-- Humidity Card -->
+                <div class="sensor-card">
+                    <div class="sensor-icon text-blue-500">💧</div>
+                    <h3 class="text-lg font-semibold text-gray-700 mb-2">Humidity</h3>
+                    <div class="sensor-value-big" id="sensor-humidity">--%</div>
+                    <div class="text-sm text-gray-600 mt-2">
+                        Relative Humidity
+                        <span id="humidity-trend" class="trend-indicator"></span>
+                    </div>
+                    <div class="text-xs text-gray-500 mt-2" id="humidity-update">Last update: --</div>
+                </div>
+
+                <!-- Gas Level Card -->
+                <div class="sensor-card" id="gas-level-card">
+                    <div class="sensor-icon text-orange-500">💨</div>
+                    <h3 class="text-lg font-semibold text-gray-700 mb-2">Air Quality</h3>
+                    <div class="sensor-value-big" id="sensor-gas">--%</div>
+                    <div class="text-sm text-gray-600 mt-2">
+                        Gas Level <span id="gas-raw" class="text-xs">(0/1024)</span>
+                    </div>
+                    <div class="text-xs text-gray-500 mt-2" id="gas-update">Last update: --</div>
+                </div>
+
+                <!-- Motion Sensor Card -->
+                <div class="sensor-card">
+                    <div class="sensor-icon" id="motion-icon">👤</div>
+                    <h3 class="text-lg font-semibold text-gray-700 mb-2">Motion Sensor</h3>
+                    <div class="text-2xl font-bold mt-4" id="sensor-motion" style="color: #10b981;">No Motion</div>
+                    <div class="text-sm text-gray-600 mt-2">PIR HC-SR501</div>
+                    <div class="text-xs text-gray-500 mt-2" id="motion-update">Last update: --</div>
+                </div>
+            </div>
+
+            <!-- Power Monitor Section (PZEM-004T) -->
+            <div class="card p-6 bg-gradient-to-br from-yellow-50 to-orange-50 mt-6">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center gap-3">
+                        <span class="text-3xl">⚡</span>
+                        <div>
+                            <h2 class="text-xl font-bold text-gray-800">AC Power Monitor (PZEM-004T)</h2>
+                            <div class="flex items-center gap-2 mt-1">
+                                <div id="pzem-status" class="w-3 h-3 rounded-full bg-gray-400"></div>
+                                <span id="pzem-status-text" class="text-sm text-gray-600 font-semibold">Connecting...</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2 bg-white px-3 py-2 rounded-lg shadow-sm">
+                        <label class="text-sm text-gray-600">Price/kWh:</label>
+                        <input type="number" id="price-per-kwh" value="6.5" step="0.5" min="0" max="100"
+                               class="w-16 px-2 py-1 text-sm border border-gray-300 rounded text-center font-semibold"
+                               onchange="calculateEnergyCost()">
+                        <span class="text-sm text-gray-600">₹</span>
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    <div class="bg-white p-4 rounded-xl shadow-sm">
+                        <p class="text-sm text-gray-600">Voltage</p>
+                        <p id="pzem-voltage" class="text-2xl font-bold text-yellow-600">-- V</p>
+                    </div>
+                    <div class="bg-white p-4 rounded-xl shadow-sm">
+                        <p class="text-sm text-gray-600">Current</p>
+                        <p id="pzem-current" class="text-2xl font-bold text-blue-600">-- A</p>
+                    </div>
+                    <div class="bg-white p-4 rounded-xl shadow-sm">
+                        <p class="text-sm text-gray-600">Power</p>
+                        <p id="pzem-power" class="text-2xl font-bold text-green-600">-- W</p>
+                    </div>
+                    <div class="bg-white p-4 rounded-xl shadow-sm">
+                        <p class="text-sm text-gray-600">Energy</p>
+                        <p id="pzem-energy" class="text-2xl font-bold text-purple-600">-- kWh</p>
+                    </div>
+                    <div class="bg-white p-4 rounded-xl shadow-sm">
+                        <p class="text-sm text-gray-600">Frequency</p>
+                        <p id="pzem-frequency" class="text-2xl font-bold text-indigo-600">-- Hz</p>
+                    </div>
+                    <div class="bg-white p-4 rounded-xl shadow-sm">
+                        <p class="text-sm text-gray-600">Power Factor</p>
+                        <p id="pzem-pf" class="text-2xl font-bold text-red-600">--</p>
+                    </div>
+                </div>
+                
+                <!-- Energy Cost Display -->
+                <div class="mt-4 bg-white rounded-xl p-4 shadow-sm">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
+                        <div class="border-r border-gray-200 last:border-r-0">
+                            <p class="text-xs text-gray-600 mb-1">Total Cost</p>
+                            <p id="total-energy-cost" class="text-2xl font-bold text-orange-600">₹ 0.00</p>
+                            <p class="text-xs text-gray-500 mt-1">Based on consumed energy</p>
+                        </div>
+                        <div class="border-r border-gray-200 last:border-r-0">
+                            <p class="text-xs text-gray-600 mb-1">Estimated Daily Cost</p>
+                            <p id="daily-cost-estimate" class="text-2xl font-bold text-blue-600">₹ 0.00</p>
+                            <p class="text-xs text-gray-500 mt-1">At current power</p>
+                        </div>
+                        <div>
+                            <p class="text-xs text-gray-600 mb-1">Estimated Monthly Cost</p>
+                            <p id="monthly-cost-estimate" class="text-2xl font-bold text-purple-600">₹ 0.00</p>
+                            <p class="text-xs text-gray-500 mt-1">At current power</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="text-xs text-gray-500 mt-4 text-center" id="pzem-update">Last update: --</div>
+            </div>
+            
+            <!-- Dashboard Overview -->
+            <div class="card p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-bold text-gray-800">Dashboard Overview</h2>
+                    <div class="flex gap-2">
+                        <button id="test-alarm-btn" class="btn bg-orange-500 hover:bg-orange-600 text-sm">Test Alarm</button>
+                        <button id="stop-alarm-btn" class="btn bg-gray-400 text-sm" disabled>Stop Alarm</button>
+                    </div>
+                </div>
+                <div class="grid grid-cols-4 gap-4">
+                    <div class="bg-gradient-to-br from-blue-50 to-blue-100 p-4 rounded-xl">
+                        <p class="text-sm text-gray-600">Total Devices</p>
+                        <p id="dashboard-total-lights" class="text-3xl font-bold text-blue-600">4</p>
+                    </div>
+                    <div class="bg-gradient-to-br from-green-50 to-green-100 p-4 rounded-xl">
+                        <p class="text-sm text-gray-600">Devices ON</p>
+                        <p id="dashboard-on-count" class="text-3xl font-bold text-green-600">0</p>
+                    </div>
+                    <div class="bg-gradient-to-br from-red-50 to-red-100 p-4 rounded-xl">
+                        <p class="text-sm text-gray-600">Devices OFF</p>
+                        <p id="dashboard-off-count" class="text-3xl font-bold text-red-600">4</p>
+                    </div>
+                    <div class="bg-gradient-to-br from-purple-50 to-purple-100 p-4 rounded-xl">
+                        <p class="text-sm text-gray-600">Status</p>
+                        <p id="dashboard-timer-status" class="text-sm font-semibold text-gray-700 mt-2">No Timer</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Voice Control -->
+            <div class="card p-6 bg-gradient-to-br from-indigo-50 to-purple-50">
+                <div class="flex items-center mb-4">
+                    <svg class="w-8 h-8 text-indigo-600 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path>
+                    </svg>
+                    <h2 class="text-xl font-bold text-indigo-700">Voice Control</h2>
+                </div>
+                <button id="voice-btn" class="btn mb-2 w-full">🎤 Start Listening</button>
+                <p id="voice-status" class="text-sm text-indigo-600 min-h-[20px] mb-3"></p>
+                
+                <!-- Voice Commands Help -->
+                <details class="text-xs text-gray-600 mt-3">
+                    <summary class="cursor-pointer hover:text-indigo-600 font-semibold">📋 Available Commands</summary>
+                    <div class="mt-2 space-y-1 pl-4 border-l-2 border-indigo-200">
+                        <p><strong>Lights:</strong></p>
+                        <p>• "Turn on all lights" / "Turn off all lights"</p>
+                        <p>• "Turn on light 1" (or 2, 3, 4)</p>
+                        <p>• "Turn off light 2" (or 1, 3, 4)</p>
+                        <p class="mt-2"><strong>Fans:</strong></p>
+                        <p>• "Turn on fan" / "Turn off fan"</p>
+                        <p>• "Turn on fan 1" (or 2)</p>
+                        <p>• "Set fan speed to 50 percent"</p>
+                        <p>• "Set fan 1 speed to 75 percent"</p>
+                        <p>• "Fan low" / "Fan medium" / "Fan high"</p>
+                        <p>• "Fan 2 low" / "Fan 1 high"</p>
+                        <p class="mt-2"><strong>Sensors:</strong></p>
+                        <p>• "What is the temperature?"</p>
+                        <p>• "Humidity" (asks for current humidity)</p>
+                        <p class="mt-2"><strong>Alarm:</strong></p>
+                        <p>• "Stop alarm" (stops fire alarm)</p>
+                    </div>
+                </details>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="flex gap-4">
+                <button id="turn-all-on" class="btn flex-1">Turn All ON</button>
+                <button id="turn-all-off" class="btn bg-gray-600 hover:bg-gray-700 flex-1">Turn All OFF</button>
+            </div>
+
+            <!-- Device Cards -->
+            <div id="light-card-container" class="grid grid-cols-1 md:grid-cols-2 gap-6"></div>
+
+        </div>
+
+        <!-- Analytics Page -->
+        <div id="page-analytics" class="hidden space-y-6">
+            
+            <!-- Real-time Status Indicator -->
+            <div class="card p-4 bg-gradient-to-r from-green-50 to-emerald-50 border-l-4 border-green-500">
+                <div class="flex items-center gap-3">
+                    <div class="flex items-center gap-2">
+                        <div class="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+                        <span class="font-semibold text-green-700">Real-time Monitoring Active</span>
+                    </div>
+                    <span class="text-sm text-gray-600">All data updates automatically across all devices</span>
+                </div>
+            </div>
+            
+            <!-- Sensor Historical Data -->
+            <div class="card p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-bold">📊 Sensor History</h2>
+                    <div class="flex gap-2">
+                        <button class="time-range-btn px-4 py-2 rounded-lg bg-indigo-600 text-white" data-range="1" onclick="changeSensorTimeRange(1)">1H</button>
+                        <button class="time-range-btn px-4 py-2 rounded-lg bg-gray-200" data-range="6" onclick="changeSensorTimeRange(6)">6H</button>
+                        <button class="time-range-btn px-4 py-2 rounded-lg bg-gray-200" data-range="24" onclick="changeSensorTimeRange(24)">24H</button>
+                        <button class="time-range-btn px-4 py-2 rounded-lg bg-gray-200" data-range="168" onclick="changeSensorTimeRange(168)">7D</button>
+                    </div>
+                </div>
+                
+                <div class="chart-container mb-6">
+                    <h3 class="text-sm font-semibold mb-2">🌡️ Temperature History</h3>
+                    <canvas id="tempHistoryChart"></canvas>
+                </div>
+
+                <div class="chart-container mb-6">
+                    <h3 class="text-sm font-semibold mb-2">💧 Humidity History</h3>
+                    <canvas id="humidityHistoryChart"></canvas>
+                </div>
+
+                <div class="chart-container">
+                    <h3 class="text-sm font-semibold mb-2">💨 Gas Level History</h3>
+                    <canvas id="gasHistoryChart"></canvas>
+                </div>
+            </div>
+
+            <!-- PZEM Power Monitor Analytics -->
+            <div class="card p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-bold">⚡ Power Monitor Analytics (PZEM-004T)</h2>
+                    <div class="flex gap-2">
+                        <button class="pzem-time-range-btn px-4 py-2 rounded-lg bg-indigo-600 text-white" data-range="1" onclick="changePZEMTimeRange(1)">1H</button>
+                        <button class="pzem-time-range-btn px-4 py-2 rounded-lg bg-gray-200" data-range="6" onclick="changePZEMTimeRange(6)">6H</button>
+                        <button class="pzem-time-range-btn px-4 py-2 rounded-lg bg-gray-200" data-range="24" onclick="changePZEMTimeRange(24)">24H</button>
+                        <button class="pzem-time-range-btn px-4 py-2 rounded-lg bg-gray-200" data-range="168" onclick="changePZEMTimeRange(168)">7D</button>
+                        <button class="pzem-time-range-btn px-4 py-2 rounded-lg bg-gray-200" data-range="720" onclick="changePZEMTimeRange(720)">30D</button>
+                    </div>
+                </div>
+                
+                <div class="chart-container mb-6">
+                    <h3 class="text-sm font-semibold mb-2">⚡ Power Consumption (Watts)</h3>
+                    <canvas id="powerHistoryChart"></canvas>
+                </div>
+
+                <div class="chart-container mb-6">
+                    <h3 class="text-sm font-semibold mb-2">⚡ Voltage (Volts)</h3>
+                    <canvas id="voltageHistoryChart"></canvas>
+                </div>
+
+                <div class="chart-container mb-6">
+                    <h3 class="text-sm font-semibold mb-2">⚡ Current (Amperes)</h3>
+                    <canvas id="currentHistoryChart"></canvas>
+                </div>
+
+                <div class="chart-container">
+                    <h3 class="text-sm font-semibold mb-2">⚡ Energy Consumption (kWh)</h3>
+                    <canvas id="energyHistoryChart"></canvas>
+                </div>
+            </div>
+
+            <!-- PZEM Statistics -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+                <div class="card p-6">
+                    <h3 class="text-sm font-semibold text-gray-600 mb-2">Peak Power</h3>
+                    <div class="text-center">
+                        <p id="pzem-peak-power" class="text-3xl font-bold text-red-600">-- W</p>
+                        <p id="pzem-peak-time" class="text-xs text-gray-500 mt-1">--</p>
+                    </div>
+                </div>
+
+                <div class="card p-6">
+                    <h3 class="text-sm font-semibold text-gray-600 mb-2">Average Power</h3>
+                    <div class="text-center">
+                        <p id="pzem-avg-power" class="text-3xl font-bold text-blue-600">-- W</p>
+                        <p class="text-xs text-gray-500 mt-1">Last 24 hours</p>
+                    </div>
+                </div>
+
+                <div class="card p-6">
+                    <h3 class="text-sm font-semibold text-gray-600 mb-2">Total Energy</h3>
+                    <div class="text-center">
+                        <p id="pzem-total-energy" class="text-3xl font-bold text-green-600">-- kWh</p>
+                        <p id="pzem-energy-cost" class="text-xs text-gray-500 mt-1">₹ --</p>
+                    </div>
+                </div>
+
+                <div class="card p-6">
+                    <h3 class="text-sm font-semibold text-gray-600 mb-2">Total Runtime</h3>
+                    <div class="text-center">
+                        <p id="pzem-runtime" class="text-3xl font-bold text-purple-600">-- hrs</p>
+                        <p class="text-xs text-gray-500 mt-1">Active time</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sensor Statistics -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="card p-6">
+                    <h3 class="text-sm font-semibold text-gray-600 mb-2">Temperature Range (24h)</h3>
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <p class="text-xs text-gray-500">Min</p>
+                            <p id="temp-min" class="text-2xl font-bold text-blue-600">--°C</p>
+                        </div>
+                        <div>
+                            <p class="text-xs text-gray-500">Max</p>
+                            <p id="temp-max" class="text-2xl font-bold text-red-600">--°C</p>
+                        </div>
+                        <div>
+                            <p class="text-xs text-gray-500">Avg</p>
+                            <p id="temp-avg" class="text-2xl font-bold text-green-600">--°C</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card p-6">
+                    <h3 class="text-sm font-semibold text-gray-600 mb-2">Humidity Range (24h)</h3>
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <p class="text-xs text-gray-500">Min</p>
+                            <p id="humidity-min" class="text-2xl font-bold text-blue-600">--%</p>
+                        </div>
+                        <div>
+                            <p class="text-xs text-gray-500">Max</p>
+                            <p id="humidity-max" class="text-2xl font-bold text-red-600">--%</p>
+                        </div>
+                        <div>
+                            <p class="text-xs text-gray-500">Avg</p>
+                            <p id="humidity-avg" class="text-2xl font-bold text-green-600">--%</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card p-6">
+                    <h3 class="text-sm font-semibold text-gray-600 mb-2">Motion Events (24h)</h3>
+                    <div class="text-center">
+                        <p id="motion-count" class="text-5xl font-bold text-purple-600">0</p>
+                        <p class="text-sm text-gray-600 mt-2">Detections</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Device Usage Analytics -->
+            <div class="card p-6">
+                <h2 class="text-xl font-bold mb-4">Device Usage Analytics</h2>
+                
+                <!-- Device Timeline Charts -->
+                <div class="mb-6">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-lg font-semibold">Device Activity Timeline</h3>
+                        <div class="flex gap-2">
+                            <button class="device-time-btn px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300 transition" data-range="1" onclick="changeDeviceTimeRange(1)">1H</button>
+                            <button class="device-time-btn px-4 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition" data-range="6" onclick="changeDeviceTimeRange(6)">6H</button>
+                            <button class="device-time-btn px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300 transition" data-range="24" onclick="changeDeviceTimeRange(24)">24H</button>
+                            <button class="device-time-btn px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300 transition" data-range="168" onclick="changeDeviceTimeRange(168)">7D</button>
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                        <div class="chart-container">
+                            <h3 class="text-sm font-semibold text-center mb-2">Lights Activity</h3>
+                            <canvas id="lightsTimelineChart"></canvas>
+                        </div>
+                        <div class="chart-container">
+                            <h3 class="text-sm font-semibold text-center mb-2">Fans Activity</h3>
+                            <canvas id="fansTimelineChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div class="chart-container">
+                        <h3 class="text-sm font-semibold text-center mb-2">Device Usage Distribution</h3>
+                        <canvas id="pieChart"></canvas>
+                    </div>
+                    <div class="chart-container">
+                        <h3 class="text-sm font-semibold text-center mb-2">Switch Count</h3>
+                        <canvas id="barChart"></canvas>
+                    </div>
+                </div>
+                
+                <div class="chart-container mt-6">
+                    <h3 class="text-sm font-semibold text-center mb-2">24-Hour Activity Heatmap</h3>
+                    <div id="heatmap" class="grid grid-cols-12 gap-1"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Logs Page -->
+        <div id="page-logs" class="hidden space-y-6">
+            <div class="card p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-bold">Activity Logs</h2>
+                    <div class="flex gap-2">
+                        <button id="clear-logs-btn" class="btn bg-red-500 hover:bg-red-600 text-sm">Clear</button>
+                        <button id="export-logs-btn" class="btn text-sm">Export</button>
+                    </div>
+                </div>
+                
+                <div class="mb-4">
+                    <input id="log-search" type="text" placeholder="Search logs..." class="w-full">
+                </div>
+                
+                <div id="log-container" class="h-96 bg-gray-50 rounded-lg p-4 overflow-y-auto font-mono text-sm space-y-1"></div>
+            </div>
+
+            <!-- Fire Alarm History -->
+            <div class="card p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-bold">🔥 Fire Alarm History</h2>
+                    <button id="refresh-alarm-history-btn" class="btn text-sm">
+                        <i class="fas fa-sync-alt"></i> Refresh
+                    </button>
+                </div>
+                
+                <div id="alarm-history-container" class="space-y-3">
+                    <div class="text-center text-gray-500 py-8">
+                        <i class="fas fa-spinner fa-spin text-2xl mb-2"></i>
+                        <p>Loading alarm history...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+<script>
+// Firebase Configuration
+const firebaseConfig = {
+    apiKey: "AIzaSyA8iM4CLqitmYsJ8gk4OZirnU4f1MVMOxQ",
+    authDomain: "smart-home-automation-2d34d.firebaseapp.com",
+    databaseURL: "https://smart-home-automation-2d34d-default-rtdb.firebaseio.com",
+    projectId: "smart-home-automation-2d34d",
+    storageBucket: "smart-home-automation-2d34d.firebasestorage.app",
+    messagingSenderId: "217146632377",
+    appId: "1:217146632377:web:21d9c2947220704e47d368"
+};
+
+let firebaseApp, db, auth, storage, realtimeDb;
+let firebaseReady = false;
+
+function initFirebase() {
+    if (!window.firebaseModules) {
+        setTimeout(initFirebase, 100);
+        return;
+    }
+    
+    const { initializeApp, getFirestore, getAuth, getStorage, getDatabase } = window.firebaseModules;
+    
+    try {
+        firebaseApp = initializeApp(firebaseConfig);
+        db = getFirestore(firebaseApp);
+        auth = getAuth(firebaseApp);
+        storage = getStorage(firebaseApp);
+        realtimeDb = getDatabase(firebaseApp);  // Initialize Realtime Database
+        
+        // Set default persistence to SESSION (logout on browser close)
+        // This prevents auto-login issues on mobile
+        const { setPersistence, browserSessionPersistence } = window.firebaseModules;
+        setPersistence(auth, browserSessionPersistence).catch(err => {
+            console.warn("Could not set default persistence:", err);
+        });
+        
+        firebaseReady = true;
+        console.log("✅ Firebase initialized (Firestore + Realtime Database)");
+        console.log("🔐 Default persistence: SESSION (logout on browser close)");
+        window.dispatchEvent(new CustomEvent('firebaseReady'));
+    } catch (error) {
+        console.error("❌ Firebase error:", error);
+    }
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initFirebase);
+} else {
+    initFirebase();
+}
+
+// MQTT Configuration
+const MQTT_BROKER = "broker.hivemq.com";
+const MQTT_PORT = 8884;
+const NUM_LIGHTS = 4;
+
+let client = null;
+let currentUser = null;
+let logEntries = [];
+let usageData = {};
+let hourlyActivity = Array(24).fill(0);
+
+// Throttle utility to prevent excessive updates and flickering
+const throttle = (func, delay = 500) => {
+    let lastCall = 0;
+    return function(...args) {
+        const now = Date.now();
+        if (now - lastCall >= delay) {
+            lastCall = now;
+            return func.apply(this, args);
+        }
+    };
+};
+
+// Debounce utility for less critical updates
+const debounce = (func, delay = 300) => {
+    let timeoutId;
+    return function(...args) {
+        clearTimeout(timeoutId);
+        timeoutId = setTimeout(() => func.apply(this, args), delay);
+    };
+};
+
+// Sensor data variables
+let tempHistoryChart, humidityHistoryChart, gasHistoryChart;
+let powerHistoryChart, voltageHistoryChart, currentHistoryChart, energyHistoryChart;
+let currentSensorTimeRange = 1; // hours
+let currentPZEMTimeRange = 1; // hours
+let previousSensorValues = { temperature: null, humidity: null };
+let sensorDataCache = { temperature: [], humidity: [], gasLevel: [] };
+
+// Appliances configuration
+const ICONS = {
+    light: '<svg class="w-16 h-16 mx-auto appliance-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 21a2 2 0 01-2-2V17a2 2 0 012-2h6a2 2 0 012 2v2a2 2 0 01-2 2H9zM9 15V9a3 3 0 013-3h0a3 3 0 013 3v6M12 6V3m-4 3h8"></path></svg>',
+    fan: '<svg class="w-16 h-16 mx-auto appliance-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="3"/><path d="M12 3v2m0 14v2m9-9h-2M5 12H3"/></svg>',
+    other: '<svg class="w-16 h-16 mx-auto appliance-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>'
+};
+
+const appliances = [
+    { id: 1, name: 'Ceiling Light', type: 'light', deviceId: 1 },
+    { id: 2, name: 'Table Lamp', type: 'light', deviceId: 2 },
+    { id: 3, name: 'Fan 1', type: 'fan', deviceId: 1 },
+    { id: 4, name: 'Fan 2', type: 'fan', deviceId: 2 }
+];
+
+// Initialize usage data
+appliances.forEach(app => {
+    usageData[app.name] = { onTime: 0, switches: 0, lastToggle: null };
+});
+
+// Utility Functions
+function showToast(message, type = 'info') {
+    const container = document.getElementById('toast-container');
+    const toast = document.createElement('div');
+    const colors = {
+        info: 'bg-blue-500',
+        success: 'bg-green-500',
+        warning: 'bg-yellow-500',
+        error: 'bg-red-500'
+    };
+    toast.className = `${colors[type]} text-white px-4 py-2 rounded-lg shadow-lg`;
+    toast.textContent = message;
+    container.appendChild(toast);
+    setTimeout(() => toast.remove(), 3000);
+}
+
+async function addLog(text, category = 'general') {
+    const now = new Date();
+    const timestamp = now.toLocaleTimeString();
+    const timestampMs = now.getTime();
+    const dateStr = now.toLocaleDateString();
+    
+    const userName = currentUser ? currentUser.email : 'System';
+    
+    const logEntry = { 
+        time: timestamp,
+        date: dateStr,
+        text,
+        user: userName,
+        category,
+        timestamp: timestampMs
+    };
+    
+    logEntries.push(logEntry);
+    renderLog();
+    
+    // Save to Firebase immediately
+    if (window.firebaseModules && realtimeDb) {
+        try {
+            const { dbRef, push } = window.firebaseModules;
+            const logsRef = dbRef(realtimeDb, 'logs');
+            await push(logsRef, logEntry);
+            console.log('✅ Log saved:', text);
+        } catch (error) {
+            console.error('❌ Error saving log:', error);
+        }
+    }
+}
+
+// Track device usage
+async function trackDeviceUsage(deviceName, deviceType, action, value = null) {
+    try {
+        const { dbRef, push } = window.firebaseModules;
+        const usageRef = dbRef(realtimeDb, 'deviceUsage');
+        const usageEntry = {
+            deviceName,
+            deviceType,
+            action,
+            value,
+            timestamp: Date.now()
+        };
+        await push(usageRef, usageEntry);
+    } catch (error) {
+        console.error('Error tracking device usage:', error);
+    }
+}
+
+function renderLog() {
+    const search = document.getElementById('log-search')?.value.toLowerCase() || '';
+    const container = document.getElementById('log-container');
+    if (!container) return;
+    
+    container.innerHTML = '';
+    
+    const filteredEntries = logEntries.filter(e => {
+        const searchText = `${e.text} ${e.user || ''}`.toLowerCase();
+        return searchText.includes(search);
+    });
+    
+    if (filteredEntries.length === 0) {
+        container.innerHTML = '<div class="text-gray-500 text-center py-4">No logs found</div>';
+        return;
+    }
+    
+    filteredEntries.forEach(entry => {
+        const userBadge = entry.user ? `<span class="text-blue-600 font-semibold">[${entry.user}]</span>` : '';
+        const categoryBadge = entry.category && entry.category !== 'general' 
+            ? `<span class="text-purple-600">[${entry.category}]</span>` 
+            : '';
+        
+        container.innerHTML += `
+            <div class="hover:bg-gray-100 p-1 rounded">
+                <span class="text-cyan-600">[${entry.time}]</span> 
+                ${userBadge} 
+                ${categoryBadge} 
+                ${entry.text}
+            </div>`;
+    });
+    
+    container.scrollTop = container.scrollHeight;
+}
+
+// Update time
+function updateTime() {
+    const now = new Date();
+    document.getElementById('current-time').textContent = now.toLocaleTimeString();
+    document.getElementById('current-date').textContent = now.toLocaleDateString('en-US', { 
+        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' 
+    });
+}
+setInterval(updateTime, 1000);
+updateTime();
+
+// MQTT Functions
+function connectMqtt() {
+    client = new Paho.Client(MQTT_BROKER, MQTT_PORT, "WebClient_" + Date.now());
+    
+    client.onConnectionLost = (resp) => {
+        console.log("Connection lost:", resp.errorMessage);
+        document.getElementById('connection-status').innerHTML = `
+            <div class="w-3 h-3 rounded-full bg-red-500"></div>
+            <span class="text-sm font-semibold text-red-500">Offline</span>
+        `;
+    };
+    
+    client.onMessageArrived = (message) => {
+        const topic = message.destinationName;
+        const payload = message.payloadString;
+        console.log("Message:", topic, payload);
+        
+        // Handle light status updates
+        if (topic.includes("/status")) {
+            const match = topic.match(/light\/(\d+)\/status/);
+            if (match) {
+                const lightId = match[1];
+                updateLightUI(lightId, payload);
+            }
+        }
+        
+        // Handle fan status updates
+        if (topic.includes("fan") && topic.includes("/status")) {
+            const match = topic.match(/fan\/(\d+)\/status/);
+            if (match) {
+                const fanId = match[1];
+                const speed = parseInt(payload);
+                updateFanUI(fanId, speed);
+            }
+        }
+        
+        // Handle fire alarm
+        if (topic.includes("alarm/flame")) {
+            if (payload === "CLEAR" || payload === "1") {
+                startAlarm();  // Fire detected - start alarm!
+            } else if (payload === "DETECTED" || payload === "0") {
+                stopAlarm();  // No fire - stop alarm
+            }
+        }
+        
+        // Handle energy monitoring data (PZEM-004T)
+        if (topic.includes("energy/status")) {
+            updateEnergyMonitor(payload);
+        }
+    };
+    
+    client.connect({
+        timeout: 10,
+        useSSL: true,
+        onSuccess: () => {
+            console.log("MQTT Connected");
+            document.getElementById('connection-status').innerHTML = `
+                <div class="w-3 h-3 rounded-full bg-green-500"></div>
+                <span class="text-sm font-semibold text-green-500">Online</span>
+            `;
+            
+            // Subscribe to topics
+            for (let i = 1; i <= NUM_LIGHTS; i++) {
+                client.subscribe(`homeautomation/project/light/${i}/status`);
+                client.subscribe(`homeautomation/project/fan/${i}/status`);
+            }
+            client.subscribe("homeautomation/project/alarm/flame");
+            client.subscribe("homeautomation/project/energy/status");
+            
+            addLog("Connected to MQTT broker", 'system');
+            showToast("Connected successfully", "success");
+        },
+        onFailure: (err) => {
+            console.error("MQTT Connection failed:", err);
+            addLog("MQTT connection failed", 'system');
+            showToast("Connection failed", "error");
+        }
+    });
+}
+
+function publishMessage(topic, payload, retained = false) {
+    if (!client || !client.isConnected()) {
+        showToast("Not connected", "warning");
+        return;
+    }
+    const message = new Paho.Message(payload);
+    message.destinationName = topic;
+    message.retained = retained;
+    client.send(message);
+}
+
+function updateLightUI(deviceId, status) {
+    // Find the light device with this deviceId
+    const light = appliances.find(app => app.type === 'light' && app.deviceId == deviceId);
+    if (!light) {
+        // Silently ignore - device not configured in appliances array
+        return;
+    }
+    
+    const lightId = light.id;
+    const toggle = document.getElementById(`light-toggle-${lightId}`);
+    const statusEl = document.getElementById(`status-badge-${lightId}`);
+    const card = document.getElementById(`card-${lightId}`);
+    const iconContainer = document.getElementById(`icon-container-${lightId}`);
+    
+    if (!toggle) return;
+    
+    const isOn = (status === "ON");
+    toggle.checked = isOn;
+    
+    // Track device usage
+    trackDeviceUsage(light.name, 'light', status);
+    
+    if (statusEl) {
+        statusEl.textContent = status;
+        statusEl.className = `status-badge absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 ${isOn ? 'status-online' : 'status-offline'}`;
+    }
+    
+    if (card) {
+        if (isOn) card.classList.add('card-on');
+        else card.classList.remove('card-on');
+    }
+    
+    if (iconContainer) {
+        if (isOn) iconContainer.classList.add('icon-on');
+        else iconContainer.classList.remove('icon-on');
+    }
+    
+    updateDashboard();
+}
+
+function updateFanUI(deviceId, speed) {
+    // Find the fan device with this deviceId
+    const fan = appliances.find(app => app.type === 'fan' && app.deviceId == deviceId);
+    if (!fan) {
+        // Silently ignore - device not configured in appliances array
+        return;
+    }
+    
+    const fanId = fan.id;
+    const statusEl = document.getElementById(`status-badge-${fanId}`);
+    const card = document.getElementById(`card-${fanId}`);
+    const iconContainer = document.getElementById(`icon-container-${fanId}`);
+    const slider = document.getElementById(`fan-slider-${fanId}`);
+    const speedDisplay = document.getElementById(`fan-speed-${fanId}`);
+    
+    // Track device usage
+    trackDeviceUsage(fan.name, 'fan', speed > 0 ? 'ON' : 'OFF', speed);
+    
+    if (statusEl) {
+        statusEl.textContent = speed > 0 ? `${speed}%` : "OFF";
+        statusEl.className = `status-badge absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 ${speed > 0 ? 'status-online' : 'status-offline'}`;
+    }
+    
+    if (card) {
+        if (speed > 0) card.classList.add('card-on');
+        else card.classList.remove('card-on');
+    }
+    
+    if (iconContainer) {
+        if (speed > 0) iconContainer.classList.add('icon-on');
+        else iconContainer.classList.remove('icon-on');
+    }
+    
+    // Update slider and speed display
+    if (slider) {
+        slider.value = speed;
+    }
+    
+    if (speedDisplay) {
+        speedDisplay.textContent = `${speed}%`;
+    }
+    
+    updateDashboard();
+}
+
+function updateDashboard() {
+    let onCount = 0;
+    appliances.forEach(app => {
+        const toggle = document.getElementById(`light-toggle-${app.id}`);
+        if (toggle && toggle.checked) onCount++;
+    });
+    
+    document.getElementById('dashboard-on-count').textContent = onCount;
+    document.getElementById('dashboard-off-count').textContent = NUM_LIGHTS - onCount;
+}
+
+// Energy Monitor Update
+function updateEnergyMonitor(payload) {
+    try {
+        const data = JSON.parse(payload);
+        
+        // Update status indicator
+        document.getElementById('pzem-status').className = 'w-3 h-3 rounded-full bg-green-500';
+        document.getElementById('pzem-status-text').textContent = 'Online';
+        document.getElementById('pzem-status-text').className = 'text-sm text-green-600 font-semibold';
+        
+        // Update values
+        document.getElementById('pzem-voltage').textContent = data.voltage ? data.voltage.toFixed(1) : '--';
+        document.getElementById('pzem-current').textContent = data.current ? data.current.toFixed(2) : '--';
+        document.getElementById('pzem-power').textContent = data.power ? data.power.toFixed(1) : '--';
+        document.getElementById('pzem-energy').textContent = data.energy ? data.energy.toFixed(3) : '--';
+        document.getElementById('pzem-frequency').textContent = data.frequency ? data.frequency.toFixed(1) : '--';
+        document.getElementById('pzem-pf').textContent = data.pf ? data.pf.toFixed(2) : '--';
+        
+        // Update power bar (assuming max 2000W)
+        const maxPower = 2000;
+        const powerPercent = Math.min((data.power / maxPower) * 100, 100);
+        document.getElementById('power-bar').style.width = powerPercent + '%';
+        document.getElementById('power-percentage').textContent = powerPercent.toFixed(0) + '%';
+        
+        // Change color based on power level
+        const powerBar = document.getElementById('power-bar');
+        if (powerPercent < 30) {
+            powerBar.className = 'h-full bg-gradient-to-r from-green-400 to-green-600 transition-all duration-500';
+        } else if (powerPercent < 70) {
+            powerBar.className = 'h-full bg-gradient-to-r from-yellow-400 to-yellow-600 transition-all duration-500';
+        } else {
+            powerBar.className = 'h-full bg-gradient-to-r from-red-400 to-red-600 transition-all duration-500';
+        }
+        
+        // Calculate energy cost
+        const ratePerKWh = parseFloat(document.getElementById('cost-rate').value) || 6.5;
+        const dailyCost = (data.energy * ratePerKWh * 24).toFixed(2); // Rough estimate
+        const monthlyCost = (dailyCost * 30).toFixed(2);
+        
+        document.getElementById('daily-cost').textContent = '₹' + dailyCost;
+        document.getElementById('monthly-cost').textContent = '₹' + monthlyCost;
+        
+        // Log significant power changes
+        if (data.power > 0 && data.power % 100 < 10) { // Log every 100W milestone
+            addLog(`⚡ Power: ${data.power.toFixed(0)}W, Current: ${data.current.toFixed(2)}A`);
+        }
+        
+    } catch (error) {
+        console.error('Error parsing energy data:', error);
+        document.getElementById('pzem-status').className = 'w-3 h-3 rounded-full bg-red-500';
+        document.getElementById('pzem-status-text').textContent = 'Error';
+        document.getElementById('pzem-status-text').className = 'text-sm text-red-600';
+    }
+}
+
+// Fire Alarm
+let isAlarmPlaying = false;
+let alarmSound = null;
+let alarmInterval = null;
+let currentAlarmId = null;
+
+// Initialize alarm sound (using Web Audio API for reliability)
+function initAlarmSound() {
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContext) {
+        console.warn("Web Audio API not supported");
+        return;
+    }
+    
+    // Create audio context
+    const audioCtx = new AudioContext();
+    
+    // Function to play siren sound
+    window.playSirenSound = function() {
+        if (audioCtx.state === 'suspended') {
+            audioCtx.resume();
+        }
+        
+        const oscillator = audioCtx.createOscillator();
+        const gainNode = audioCtx.createGain();
+        
+        oscillator.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+        
+        // Siren effect: alternating frequencies
+        oscillator.frequency.setValueAtTime(800, audioCtx.currentTime);
+        oscillator.frequency.exponentialRampToValueAtTime(1200, audioCtx.currentTime + 0.5);
+        oscillator.frequency.exponentialRampToValueAtTime(800, audioCtx.currentTime + 1);
+        
+        gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 1);
+        
+        oscillator.start(audioCtx.currentTime);
+        oscillator.stop(audioCtx.currentTime + 1);
+    };
+}
+
+// Save fire alarm to Firebase history
+async function saveFireAlarmHistory(status) {
+    if (!realtimeDb) return;
+    
+    const { dbRef, push, set } = window.firebaseModules;
+    
+    try {
+        const alarmData = {
+            type: 'fire',
+            status: status, // 'detected' or 'stopped'
+            timestamp: Date.now(),
+            time: new Date().toLocaleString(),
+            user: currentUser ? currentUser.email : 'System'
+        };
+        
+        // Save to Firebase alarms/history
+        const historyRef = dbRef(realtimeDb, 'alarms/history');
+        const newAlarmRef = push(historyRef);
+        await set(newAlarmRef, alarmData);
+        
+        console.log(`🔥 Fire alarm ${status} saved to history`);
+        
+        // Also update current alarm status
+        const currentRef = dbRef(realtimeDb, 'alarms/fire/current');
+        await set(currentRef, {
+            active: status === 'detected',
+            ...alarmData
+        });
+        
+        return newAlarmRef.key;
+    } catch (error) {
+        console.error('Error saving fire alarm history:', error);
+    }
+}
+
+function startAlarm(skipFirebaseUpdate = false) {
+    if (isAlarmPlaying) return;
+    isAlarmPlaying = true;
+    
+    // Show visual alarm
+    document.getElementById('flame-alarm-banner').classList.remove('hidden');
+    const stopBtn = document.getElementById('stop-alarm-btn');
+    if (stopBtn) {
+        stopBtn.disabled = false;
+        stopBtn.classList.remove('bg-gray-400');
+        stopBtn.classList.add('bg-red-600', 'hover:bg-red-700');
+    }
+    
+    // Initialize sound if not done
+    if (!window.playSirenSound) {
+        initAlarmSound();
+    }
+    
+    // Play alarm sound continuously
+    if (window.playSirenSound) {
+        window.playSirenSound();
+        alarmInterval = setInterval(() => {
+            if (isAlarmPlaying) {
+                window.playSirenSound();
+            }
+        }, 1000); // Play every second
+    }
+    
+    // Only save to Firebase if not triggered by Firebase listener (prevent loop)
+    if (!skipFirebaseUpdate) {
+        saveFireAlarmHistory('detected').then(alarmId => {
+            currentAlarmId = alarmId;
+        });
+    }
+    
+    addLog("🚨 FIRE ALARM TRIGGERED!", 'alarm');
+    showToast("🔥 FIRE DETECTED!", "error");
+    
+    // Make page title blink
+    let originalTitle = document.title;
+    let titleInterval = setInterval(() => {
+        if (isAlarmPlaying) {
+            document.title = document.title === originalTitle ? "🔥 FIRE ALARM! 🔥" : originalTitle;
+        } else {
+            document.title = originalTitle;
+            clearInterval(titleInterval);
+        }
+    }, 1000);
+}
+
+function stopAlarm(skipFirebaseUpdate = false) {
+    if (!isAlarmPlaying) return;
+    
+    isAlarmPlaying = false;
+    
+    // Hide visual alarm
+    document.getElementById('flame-alarm-banner').classList.add('hidden');
+    const stopBtn = document.getElementById('stop-alarm-btn');
+    if (stopBtn) {
+        stopBtn.disabled = true;
+        stopBtn.classList.add('bg-gray-400');
+        stopBtn.classList.remove('bg-red-600', 'hover:bg-red-700');
+    }
+    
+    // Stop alarm sound
+    if (alarmInterval) {
+        clearInterval(alarmInterval);
+        alarmInterval = null;
+    }
+    
+    // Only save to Firebase if not triggered by Firebase listener (prevent loop)
+    if (!skipFirebaseUpdate) {
+        saveFireAlarmHistory('stopped');
+    }
+    
+    addLog("✓ Fire alarm stopped", 'alarm');
+    showToast("Alarm stopped", "success");
+    
+    // Reset page title
+    document.title = "Smart Home Automation";
+}
+
+// Load Fire Alarm History
+async function loadAlarmHistory() {
+    const container = document.getElementById('alarm-history-container');
+    
+    if (!firebaseReady || !realtimeDb) {
+        container.innerHTML = `
+            <div class="text-center text-gray-500 py-8">
+                <i class="fas fa-exclamation-circle text-2xl mb-2"></i>
+                <p>Firebase not ready</p>
+            </div>
+        `;
+        return;
+    }
+    
+    try {
+        const { dbRef, get, query, orderByChild, limitToLast } = window.firebaseModules;
+        const historyRef = dbRef(realtimeDb, 'alarms/history');
+        const historyQuery = query(historyRef, orderByChild('timestamp'), limitToLast(50));
+        const snapshot = await get(historyQuery);
+        
+        if (!snapshot.exists()) {
+            container.innerHTML = `
+                <div class="text-center text-gray-500 py-8">
+                    <i class="fas fa-info-circle text-2xl mb-2"></i>
+                    <p>No alarm history found</p>
+                </div>
+            `;
+            return;
+        }
+        
+        const alarms = [];
+        snapshot.forEach(child => {
+            const data = child.val();
+            if (data.type === 'fire') {
+                alarms.push({
+                    id: child.key,
+                    ...data
+                });
+            }
+        });
+        
+        // Sort by timestamp descending (newest first)
+        alarms.sort((a, b) => b.timestamp - a.timestamp);
+        
+        if (alarms.length === 0) {
+            container.innerHTML = `
+                <div class="text-center text-gray-500 py-8">
+                    <i class="fas fa-info-circle text-2xl mb-2"></i>
+                    <p>No fire alarm history found</p>
+                </div>
+            `;
+            return;
+        }
+        
+        // Group alarms by pairs (detected + stopped)
+        const groupedAlarms = [];
+        for (let i = 0; i < alarms.length; i++) {
+            if (alarms[i].status === 'detected') {
+                const detected = alarms[i];
+                const stopped = alarms.find((a, idx) => 
+                    idx > i && 
+                    a.status === 'stopped' && 
+                    a.timestamp > detected.timestamp &&
+                    Math.abs(a.timestamp - detected.timestamp) < 3600000 // Within 1 hour
+                );
+                
+                groupedAlarms.push({
+                    detected,
+                    stopped,
+                    duration: stopped ? (stopped.timestamp - detected.timestamp) / 1000 : null
+                });
+            }
+        }
+        
+        // Render alarm history
+        let html = '';
+        
+        groupedAlarms.forEach((alarm, index) => {
+            const detectedTime = new Date(alarm.detected.timestamp).toLocaleString();
+            const stoppedTime = alarm.stopped ? new Date(alarm.stopped.timestamp).toLocaleString() : 'Still active';
+            const duration = alarm.duration ? formatDuration(alarm.duration) : 'N/A';
+            
+            const bgColor = alarm.stopped ? 'bg-gray-50' : 'bg-red-50';
+            const statusBadge = alarm.stopped 
+                ? '<span class="px-2 py-1 bg-green-500 text-white rounded text-xs">Resolved</span>'
+                : '<span class="px-2 py-1 bg-red-500 text-white rounded text-xs animate-pulse">Active</span>';
+            
+            html += `
+                <div class="${bgColor} border-l-4 ${alarm.stopped ? 'border-gray-400' : 'border-red-500'} p-4 rounded-r">
+                    <div class="flex justify-between items-start mb-2">
+                        <div class="flex items-center gap-2">
+                            <i class="fas fa-fire text-red-600"></i>
+                            <span class="font-bold">Fire Alarm #${groupedAlarms.length - index}</span>
+                            ${statusBadge}
+                        </div>
+                        <span class="text-xs text-gray-500">${duration} duration</span>
+                    </div>
+                    
+                    <div class="grid grid-cols-2 gap-3 text-sm">
+                        <div>
+                            <span class="text-gray-600">🔴 Detected:</span>
+                            <div class="font-medium">${detectedTime}</div>
+                            ${alarm.detected.user ? `<div class="text-xs text-gray-500">By: ${alarm.detected.user}</div>` : ''}
+                        </div>
+                        <div>
+                            <span class="text-gray-600">✅ Stopped:</span>
+                            <div class="font-medium">${stoppedTime}</div>
+                            ${alarm.stopped && alarm.stopped.user ? `<div class="text-xs text-gray-500">By: ${alarm.stopped.user}</div>` : ''}
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+        
+        container.innerHTML = html;
+        
+    } catch (error) {
+        console.error("Error loading alarm history:", error);
+        container.innerHTML = `
+            <div class="text-center text-red-500 py-8">
+                <i class="fas fa-exclamation-triangle text-2xl mb-2"></i>
+                <p>Error loading alarm history</p>
+                <p class="text-sm mt-2">${error.message}</p>
+            </div>
+        `;
+    }
+}
+
+// Helper function to format duration
+function formatDuration(seconds) {
+    if (seconds < 60) {
+        return `${Math.round(seconds)}s`;
+    } else if (seconds < 3600) {
+        const mins = Math.floor(seconds / 60);
+        const secs = Math.round(seconds % 60);
+        return `${mins}m ${secs}s`;
+    } else {
+        const hours = Math.floor(seconds / 3600);
+        const mins = Math.floor((seconds % 3600) / 60);
+        return `${hours}h ${mins}m`;
+    }
+}
+
+// Voice Control with Feedback
+let recognition;
+let synthesis = window.speechSynthesis;
+
+// Voice feedback function
+function speak(text) {
+    if (!synthesis) {
+        console.warn("Speech synthesis not supported");
+        return;
+    }
+    
+    // Cancel any ongoing speech
+    synthesis.cancel();
+    
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = 1.0;
+    utterance.pitch = 1.0;
+    utterance.volume = 1.0;
+    utterance.lang = 'en-US';
+    
+    synthesis.speak(utterance);
+    console.log(`🔊 Speaking: "${text}"`);
+}
+
+if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+    const SpeechRecognition = window.webkitSpeechRecognition || window.SpeechRecognition;
+    recognition = new SpeechRecognition();
+    recognition.continuous = false;
+    recognition.lang = 'en-US';
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+    
+    recognition.onstart = () => {
+        document.getElementById('voice-status').textContent = "🎤 Listening...";
+        document.getElementById('voice-btn').textContent = "Listening...";
+        document.getElementById('voice-btn').disabled = true;
+    };
+    
+    recognition.onresult = (event) => {
+        const transcript = event.results[0][0].transcript.toLowerCase();
+        const confidence = event.results[0][0].confidence;
+        console.log(`🎤 Heard: "${transcript}" (confidence: ${(confidence * 100).toFixed(1)}%)`);
+        
+        document.getElementById('voice-status').textContent = `Heard: "${transcript}"`;
+        
+        let commandExecuted = false;
+        let responseText = "";
+        
+        // All lights control
+        if (transcript.includes("turn on all") || transcript.includes("all lights on")) {
+            for (let i = 1; i <= NUM_LIGHTS; i++) {
+                publishMessage(`homeautomation/project/light/${i}/set`, "ON");
+            }
+            addLog("Voice: Turn ON all lights", 'voice-command');
+            responseText = "Turning on all lights";
+            commandExecuted = true;
+            
+        } else if (transcript.includes("turn off all") || transcript.includes("all lights off")) {
+            for (let i = 1; i <= NUM_LIGHTS; i++) {
+                publishMessage(`homeautomation/project/light/${i}/set`, "OFF");
+            }
+            addLog("Voice: Turn OFF all lights", 'voice-command');
+            responseText = "Turning off all lights";
+            commandExecuted = true;
+            
+        } 
+        // Individual light control
+        else if (transcript.match(/turn on light ([1-4])/)) {
+            const lightNum = transcript.match(/turn on light ([1-4])/)[1];
+            publishMessage(`homeautomation/project/light/${lightNum}/set`, "ON");
+            addLog(`Voice: Turn ON light ${lightNum}`, 'voice-command');
+            responseText = `Turning on light ${lightNum}`;
+            commandExecuted = true;
+            
+        } else if (transcript.match(/turn off light ([1-4])/)) {
+            const lightNum = transcript.match(/turn off light ([1-4])/)[1];
+            publishMessage(`homeautomation/project/light/${lightNum}/set`, "OFF");
+            addLog(`Voice: Turn OFF light ${lightNum}`, 'voice-command');
+            responseText = `Turning off light ${lightNum}`;
+            commandExecuted = true;
+        }
+        // Fan control with speed
+        else if (transcript.match(/set fan.*speed|fan.*speed.*to|fan.*percent/)) {
+            // Extract fan number and speed
+            const fanMatch = transcript.match(/fan ([1-2])/);
+            const speedMatch = transcript.match(/(\d+)\s*(?:percent|%)/);
+            
+            const fanNum = fanMatch ? fanMatch[1] : '1';
+            let speed = speedMatch ? parseInt(speedMatch[1]) : null;
+            
+            if (speed !== null) {
+                // Clamp speed between 0-100
+                speed = Math.max(0, Math.min(100, speed));
+                const fanId = parseInt(fanNum) + 2;
+                console.log(`🌀 Voice: Setting fan ${fanNum} (appliance id: ${fanId}) to ${speed}%`);
+                setFanSpeed(fanId, speed);
+                addLog(`Voice: Set fan ${fanNum} to ${speed}%`, 'voice-command');
+                responseText = `Setting fan ${fanNum} to ${speed} percent`;
+                commandExecuted = true;
+            } else {
+                responseText = "Please specify the speed percentage";
+                commandExecuted = true;
+            }
+        }
+        // Fan speed presets
+        else if (transcript.match(/fan.*(low|slow)/)) {
+            const fanMatch = transcript.match(/fan ([1-2])/);
+            const fanNum = fanMatch ? fanMatch[1] : '1';
+            const fanId = parseInt(fanNum) + 2;
+            console.log(`🌀 Voice: Setting fan ${fanNum} to low speed (25%)`);
+            setFanSpeed(fanId, 25);
+            addLog(`Voice: Set fan ${fanNum} to low speed`, 'voice-command');
+            responseText = `Setting fan ${fanNum} to low speed`;
+            commandExecuted = true;
+            
+        } else if (transcript.match(/fan.*(medium|mid)/)) {
+            const fanMatch = transcript.match(/fan ([1-2])/);
+            const fanNum = fanMatch ? fanMatch[1] : '1';
+            const fanId = parseInt(fanNum) + 2;
+            console.log(`🌀 Voice: Setting fan ${fanNum} to medium speed (50%)`);
+            setFanSpeed(fanId, 50);
+            addLog(`Voice: Set fan ${fanNum} to medium speed`, 'voice-command');
+            responseText = `Setting fan ${fanNum} to medium speed`;
+            commandExecuted = true;
+            
+        } else if (transcript.match(/fan.*(high|fast|max|full)/)) {
+            const fanMatch = transcript.match(/fan ([1-2])/);
+            const fanNum = fanMatch ? fanMatch[1] : '1';
+            const fanId = parseInt(fanNum) + 2;
+            console.log(`🌀 Voice: Setting fan ${fanNum} to high speed (100%)`);
+            setFanSpeed(fanId, 100);
+            addLog(`Voice: Set fan ${fanNum} to high speed`, 'voice-command');
+            responseText = `Setting fan ${fanNum} to high speed`;
+            commandExecuted = true;
+        }
+        // Fan on/off (keep original commands)
+        else if (transcript.includes("turn on fan") || transcript.includes("fan on")) {
+            const fanMatch = transcript.match(/fan ([1-2])/);
+            const fanNum = fanMatch ? fanMatch[1] : '1';
+            // Fan IDs in appliances array are 3 and 4 (id: 3 = Fan 1, id: 4 = Fan 2)
+            const fanId = parseInt(fanNum) + 2; // Convert voice command 1/2 to appliance id 3/4
+            console.log(`🌀 Voice: Turning ON fan ${fanNum} (appliance id: ${fanId})`);
+            setFanSpeed(fanId, 75);
+            addLog(`Voice: Turn ON fan ${fanNum}`, 'voice-command');
+            responseText = `Turning on fan ${fanNum}`;
+            commandExecuted = true;
+            
+        } else if (transcript.includes("turn off fan") || transcript.includes("fan off")) {
+            const fanMatch = transcript.match(/fan ([1-2])/);
+            const fanNum = fanMatch ? fanMatch[1] : '1';
+            // Fan IDs in appliances array are 3 and 4 (id: 3 = Fan 1, id: 4 = Fan 2)
+            const fanId = parseInt(fanNum) + 2; // Convert voice command 1/2 to appliance id 3/4
+            console.log(`🌀 Voice: Turning OFF fan ${fanNum} (appliance id: ${fanId})`);
+            setFanSpeed(fanId, 0);
+            addLog(`Voice: Turn OFF fan ${fanNum}`, 'voice-command');
+            responseText = `Turning off fan ${fanNum}`;
+            commandExecuted = true;
+        }
+        // Temperature and sensor queries
+        else if (transcript.includes("what is the temperature") || transcript.includes("temperature")) {
+            const tempElement = document.getElementById('sensor-temperature');
+            if (tempElement && tempElement.textContent && tempElement.textContent !== '--°C') {
+                const temp = tempElement.textContent;
+                responseText = `The current temperature is ${temp}`;
+                console.log(`🌡️ Temperature: ${temp}`);
+            } else {
+                responseText = "Temperature data is not available yet";
+                console.warn("⚠️ Temperature element not found or no data");
+            }
+            commandExecuted = true;
+            
+        } else if (transcript.includes("humidity")) {
+            const humElement = document.getElementById('sensor-humidity');
+            if (humElement && humElement.textContent && humElement.textContent !== '--%') {
+                const humidity = humElement.textContent;
+                responseText = `The current humidity is ${humidity}`;
+                console.log(`💧 Humidity: ${humidity}`);
+            } else {
+                responseText = "Humidity data is not available yet";
+                console.warn("⚠️ Humidity element not found or no data");
+            }
+            commandExecuted = true;
+        }
+        // Stop alarm
+        else if (transcript.includes("stop alarm") || transcript.includes("silence alarm")) {
+            if (isAlarmPlaying) {
+                stopAlarm();
+                responseText = "Alarm stopped";
+                commandExecuted = true;
+            } else {
+                responseText = "No alarm is currently playing";
+                commandExecuted = true;
+            }
+        }
+        
+        // Provide feedback
+        if (commandExecuted) {
+            speak(responseText);
+            showToast(responseText, "success");
+        } else {
+            responseText = "Sorry, I didn't understand that command";
+            speak(responseText);
+            showToast(responseText, "error");
+            addLog(`Voice: Unknown command - "${transcript}"`, 'voice-command');
+        }
+    };
+    
+    recognition.onerror = (event) => {
+        console.error("Voice recognition error:", event.error);
+        let errorMsg = "Voice recognition error";
+        
+        switch(event.error) {
+            case 'no-speech':
+                errorMsg = "No speech detected. Please try again.";
+                break;
+            case 'audio-capture':
+                errorMsg = "Microphone not available. Please check permissions.";
+                break;
+            case 'not-allowed':
+                errorMsg = "Microphone permission denied. Please enable in browser settings.";
+                break;
+            case 'network':
+                errorMsg = "Network error. Please check your connection.";
+                break;
+            case 'aborted':
+                errorMsg = "Voice recognition aborted.";
+                break;
+            default:
+                errorMsg = `Voice error: ${event.error}`;
+        }
+        
+        document.getElementById('voice-status').textContent = errorMsg;
+        showToast(errorMsg, "error");
+        speak(errorMsg);
+        
+        // Reset button
+        document.getElementById('voice-btn').textContent = "Start Listening";
+        document.getElementById('voice-btn').disabled = false;
+    };
+    
+    recognition.onend = () => {
+        console.log("Voice recognition ended");
+        document.getElementById('voice-btn').textContent = "Start Listening";
+        document.getElementById('voice-btn').disabled = false;
+        
+        setTimeout(() => {
+            if (document.getElementById('voice-status').textContent.includes("Heard:")) {
+                document.getElementById('voice-status').textContent = "";
+            }
+        }, 3000);
+    };
+} else {
+    console.warn("Speech recognition not supported in this browser");
+    document.getElementById('voice-status').textContent = "Voice control not supported in this browser";
+}
+
+// Create Device Cards
+function createDeviceCard(app) {
+    const isLight = app.type === 'light';
+    
+    return `
+        <div id="card-${app.id}" class="card p-6">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold">${app.name}</h3>
+                ${isLight ? `
+                <label class="toggle-switch">
+                    <input type="checkbox" class="toggle-checkbox" id="light-toggle-${app.id}" data-id="${app.id}">
+                    <span class="toggle-track"></span>
+                    <span class="toggle-thumb"></span>
+                </label>
+                ` : `
+                <span class="text-2xl font-bold" id="fan-speed-${app.id}">0%</span>
+                `}
+            </div>
+            <div class="relative mb-4">
+                <span id="status-badge-${app.id}" class="status-badge absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 status-offline">OFF</span>
+                <span id="icon-container-${app.id}" data-type="${app.type}">${ICONS[app.type]}</span>
+            </div>
+            ${!isLight ? `
+            <input type="range" min="0" max="100" value="0" class="slider-control w-full" id="fan-slider-${app.id}" data-id="${app.id}">
+            <div class="flex gap-2 mt-4">
+                <button class="btn flex-1" onclick="setFanSpeed(${app.id}, 75)">ON</button>
+                <button class="btn bg-gray-600 hover:bg-gray-700 flex-1" onclick="setFanSpeed(${app.id}, 0)">OFF</button>
+            </div>
+            ` : ''}
+        </div>
+    `;
+}
+
+function setFanSpeed(fanId, speed) {
+    // Find the fan device to get its deviceId
+    const fan = appliances.find(app => app.id === fanId && app.type === 'fan');
+    if (!fan) {
+        console.error(`❌ Fan with id ${fanId} not found`);
+        return;
+    }
+    
+    const deviceId = fan.deviceId;
+    console.log(`🌀 Setting fan ${fanId} (device ${deviceId}) to speed: ${speed}`);
+    const topic = `homeautomation/project/fan/${deviceId}/set`;
+    console.log(`📤 Publishing to topic: ${topic}, payload: ${speed}`);
+    publishMessage(topic, speed.toString());
+    addLog(`Set ${fan.name} to ${speed}%`, 'device-control');
+}
+
+function renderDevices() {
+    const container = document.getElementById('light-card-container');
+    container.innerHTML = appliances.map(createDeviceCard).join('');
+    
+    // Add event listeners
+    appliances.forEach(app => {
+        if (app.type === 'light') {
+            const toggle = document.getElementById(`light-toggle-${app.id}`);
+            toggle.addEventListener('change', (e) => {
+                const state = e.target.checked ? "ON" : "OFF";
+                publishMessage(`homeautomation/project/light/${app.deviceId}/set`, state);
+                addLog(`${app.name} turned ${state}`, 'device-control');
+            });
+        } else if (app.type === 'fan') {
+            const slider = document.getElementById(`fan-slider-${app.id}`);
+            if (!slider) {
+                console.error(`❌ Slider not found for fan ${app.id}`);
+                return;
+            }
+            console.log(`✅ Fan ${app.id} slider found, attaching listeners`);
+            
+            slider.addEventListener('input', (e) => {
+                const speed = e.target.value;
+                console.log(`🎚️ Slider input - Fan ${app.id}: ${speed}%`);
+                document.getElementById(`fan-speed-${app.id}`).textContent = `${speed}%`;
+            });
+            
+            slider.addEventListener('change', (e) => {
+                const speed = e.target.value;
+                console.log(`🎚️ Slider change - Fan ${app.id}: ${speed}%`);
+                setFanSpeed(app.id, parseInt(speed));
+            });
+        }
+    });
+}
+
+// Initialize Charts
+let pieChart, barChart, lightsTimelineChart, fansTimelineChart;
+let currentDeviceTimeRange = 6; // Default 6 hours
+
+// Real-time listeners for analytics
+let pzemDataListener = null;
+let deviceUsageListener = null;
+let sensorDataListener = null;
+let isAnalyticsPageActive = false;
+
+// Professional color palette for charts
+const chartColors = {
+    // Vibrant, distinguishable colors for devices
+    primary: [
+        '#FF6384',  // Pink-Red
+        '#36A2EB',  // Blue
+        '#FFCE56',  // Yellow
+        '#4BC0C0',  // Teal
+        '#9966FF',  // Purple
+        '#FF9F40',  // Orange
+        '#FF6384',  // Pink
+        '#C9CBCF'   // Grey
+    ],
+    // Gradient colors for bars
+    gradient: [
+        'rgba(255, 99, 132, 0.8)',   // Red gradient
+        'rgba(54, 162, 235, 0.8)',   // Blue gradient
+        'rgba(255, 206, 86, 0.8)',   // Yellow gradient
+        'rgba(75, 192, 192, 0.8)',   // Teal gradient
+        'rgba(153, 102, 255, 0.8)',  // Purple gradient
+        'rgba(255, 159, 64, 0.8)',   // Orange gradient
+        'rgba(231, 76, 60, 0.8)',    // Red gradient
+        'rgba(46, 204, 113, 0.8)'    // Green gradient
+    ],
+    // Border colors (darker versions)
+    borders: [
+        '#FF6384',
+        '#36A2EB',
+        '#FFCE56',
+        '#4BC0C0',
+        '#9966FF',
+        '#FF9F40',
+        '#E74C3C',
+        '#2ECC71'
+    ]
+};
+
+function initCharts() {
+    const deviceNames = appliances.map(a => a.name);
+    
+    // Enhanced Pie Chart with better colors and labels
+    const pieCtx = document.getElementById('pieChart').getContext('2d');
+    pieChart = new Chart(pieCtx, {
+        type: 'doughnut',  // Changed to doughnut for modern look
+        data: {
+            labels: deviceNames,
+            datasets: [{
+                data: new Array(appliances.length).fill(0),
+                backgroundColor: chartColors.primary.slice(0, appliances.length),
+                borderColor: '#ffffff',
+                borderWidth: 3,
+                hoverOffset: 15
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'right',
+                    labels: {
+                        padding: 15,
+                        font: {
+                            size: 12,
+                            weight: '600'
+                        },
+                        usePointStyle: true,
+                        pointStyle: 'circle'
+                    }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const label = context.label || '';
+                            const value = context.parsed || 0;
+                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                            const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+                            return `${label}: ${value} times (${percentage}%)`;
+                        }
+                    },
+                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    padding: 12,
+                    titleFont: { size: 14, weight: 'bold' },
+                    bodyFont: { size: 13 },
+                    cornerRadius: 8
+                }
+            }
+        }
+    });
+    
+    // Enhanced Bar Chart with gradient colors
+    const barCtx = document.getElementById('barChart').getContext('2d');
+    barChart = new Chart(barCtx, {
+        type: 'bar',
+        data: {
+            labels: deviceNames,
+            datasets: [{
+                label: 'Switch Count',
+                data: new Array(appliances.length).fill(0),
+                backgroundColor: chartColors.gradient.slice(0, appliances.length),
+                borderColor: chartColors.borders.slice(0, appliances.length),
+                borderWidth: 2,
+                borderRadius: 6,
+                barThickness: 50
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: { 
+                    beginAtZero: true,
+                    grid: {
+                        color: 'rgba(0, 0, 0, 0.05)',
+                        drawBorder: false
+                    },
+                    ticks: {
+                        font: { size: 12, weight: '600' },
+                        stepSize: 1
+                    },
+                    title: {
+                        display: true,
+                        text: 'Number of Switches',
+                        font: { size: 13, weight: 'bold' }
+                    }
+                },
+                x: {
+                    grid: {
+                        display: false
+                    },
+                    ticks: {
+                        font: { size: 12, weight: '600' }
+                    }
+                }
+            },
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    padding: 12,
+                    titleFont: { size: 14, weight: 'bold' },
+                    bodyFont: { size: 13 },
+                    cornerRadius: 8,
+                    callbacks: {
+                        label: function(context) {
+                            return `Switched: ${context.parsed.y} times`;
+                        }
+                    }
+                }
+            }
+        }
+    });
+    
+    // Enhanced Lights Timeline Chart
+    const lightsCtx = document.getElementById('lightsTimelineChart').getContext('2d');
+    lightsTimelineChart = new Chart(lightsCtx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: []
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                mode: 'index',
+                intersect: false
+            },
+            scales: {
+                x: {
+                    type: 'time',
+                    time: {
+                        unit: 'hour',
+                        displayFormats: {
+                            hour: 'HH:mm',
+                            minute: 'HH:mm'
+                        },
+                        tooltipFormat: 'MMM dd, HH:mm:ss'
+                    },
+                    grid: {
+                        color: 'rgba(0, 0, 0, 0.05)'
+                    },
+                    ticks: {
+                        font: { size: 11, weight: '600' }
+                    },
+                    title: {
+                        display: true,
+                        text: 'Time',
+                        font: { size: 12, weight: 'bold' }
+                    }
+                },
+                y: { 
+                    beginAtZero: true,
+                    max: 1,
+                    grid: {
+                        color: 'rgba(0, 0, 0, 0.05)'
+                    },
+                    ticks: {
+                        stepSize: 1,
+                        callback: function(value) {
+                            return value === 1 ? 'ON' : 'OFF';
+                        },
+                        font: { size: 12, weight: '600' }
+                    },
+                    title: {
+                        display: true,
+                        text: 'Light Status',
+                        font: { size: 12, weight: 'bold' }
+                    }
+                }
+            },
+            plugins: {
+                legend: { 
+                    position: 'top',
+                    labels: {
+                        padding: 10,
+                        font: { size: 12, weight: '600' },
+                        usePointStyle: true,
+                        pointStyle: 'rectRounded'
+                    }
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    padding: 12,
+                    cornerRadius: 8,
+                    titleFont: { size: 13, weight: 'bold' },
+                    bodyFont: { size: 12 },
+                    callbacks: {
+                        label: function(context) {
+                            const status = context.parsed.y === 1 ? 'ON' : 'OFF';
+                            return `${context.dataset.label}: ${status}`;
+                        }
+                    }
+                }
+            }
+        }
+    });
+    
+    // Enhanced Fans Timeline Chart
+    const fansCtx = document.getElementById('fansTimelineChart').getContext('2d');
+    fansTimelineChart = new Chart(fansCtx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: []
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                mode: 'index',
+                intersect: false
+            },
+            scales: {
+                x: {
+                    type: 'time',
+                    time: {
+                        unit: 'hour',
+                        displayFormats: {
+                            hour: 'HH:mm',
+                            minute: 'HH:mm'
+                        },
+                        tooltipFormat: 'MMM dd, HH:mm:ss'
+                    },
+                    grid: {
+                        color: 'rgba(0, 0, 0, 0.05)'
+                    },
+                    ticks: {
+                        font: { size: 11, weight: '600' }
+                    },
+                    title: {
+                        display: true,
+                        text: 'Time',
+                        font: { size: 12, weight: 'bold' }
+                    }
+                },
+                y: { 
+                    beginAtZero: true,
+                    max: 100,
+                    grid: {
+                        color: 'rgba(0, 0, 0, 0.05)'
+                    },
+                    ticks: {
+                        stepSize: 25,
+                        callback: function(value) {
+                            return value + '%';
+                        },
+                        font: { size: 12, weight: '600' }
+                    },
+                    title: {
+                        display: true,
+                        text: 'Fan Speed',
+                        font: { size: 12, weight: 'bold' }
+                    }
+                }
+            },
+            plugins: {
+                legend: { 
+                    position: 'top',
+                    labels: {
+                        padding: 10,
+                        font: { size: 12, weight: '600' },
+                        usePointStyle: true,
+                        pointStyle: 'rectRounded'
+                    }
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    padding: 12,
+                    cornerRadius: 8,
+                    titleFont: { size: 13, weight: 'bold' },
+                    bodyFont: { size: 12 },
+                    callbacks: {
+                        label: function(context) {
+                            return `${context.dataset.label}: ${context.parsed.y}%`;
+                        }
+                    }
+                }
+            }
+        }
+    });
+    
+    // Heatmap
+    const heatmap = document.getElementById('heatmap');
+    for (let i = 0; i < 24; i++) {
+        const cell = document.createElement('div');
+        cell.className = 'h-8 bg-gray-200 rounded';
+        cell.title = `${i}:00`;
+        heatmap.appendChild(cell);
+    }
+}
+
+// Page Navigation
+function switchPage(pageName) {
+    ['dashboard', 'analytics', 'logs'].forEach(page => {
+        document.getElementById(`page-${page}`).classList.add('hidden');
+    });
+    document.getElementById(`page-${pageName}`).classList.remove('hidden');
+    
+    document.querySelectorAll('.nav-tab').forEach(tab => {
+        if (tab.dataset.page === pageName) {
+            tab.classList.add('active');
+        } else {
+            tab.classList.remove('active');
+        }
+    });
+    
+    // Load sensor data when switching to analytics page
+    if (pageName === 'analytics') {
+        initSensorCharts();
+        loadSensorData(currentSensorTimeRange);
+    }
+}
+
+// ========== SENSOR FUNCTIONS ==========
+
+// Initialize Firebase Realtime Database listeners for sensors
+function startSensorListeners() {
+    if (!realtimeDb) {
+        console.warn("⚠️ Realtime Database not initialized");
+        return;
+    }
+    
+    const { dbRef, onValue } = window.firebaseModules;
+    
+    console.log("📡 Starting sensor listeners...");
+    
+    // Listen for current sensor data
+    const sensorsRef = dbRef(realtimeDb, 'sensors/current');
+    onValue(sensorsRef, (snapshot) => {
+        const data = snapshot.val();
+        if (data) {
+            console.log("📊 Sensor data received:", data);
+            updateSensorUI(data);
+        }
+    });
+    
+    // Listen for gas alarm
+    const gasAlarmRef = dbRef(realtimeDb, 'alarms/gas');
+    onValue(gasAlarmRef, (snapshot) => {
+        const data = snapshot.val();
+        if (data && data.active === true) {
+            showGasAlarm(data);
+        } else {
+            hideGasAlarm();
+        }
+    });
+    
+    // Listen for fire alarm (sync across all devices)
+    const fireAlarmRef = dbRef(realtimeDb, 'alarms/fire/current');
+    onValue(fireAlarmRef, (snapshot) => {
+        const data = snapshot.val();
+        if (data && data.active === true) {
+            console.log("🔥 Fire alarm detected from Firebase");
+            // Only start alarm if not already playing (prevent loop)
+            if (!isAlarmPlaying) {
+                startAlarm(true); // Pass true to skip Firebase update
+            }
+        } else {
+            // Only stop alarm if currently playing (prevent loop)
+            if (isAlarmPlaying) {
+                stopAlarm(true); // Pass true to skip Firebase update
+            }
+        }
+    });
+    
+    // Listen for PZEM power monitor data
+    const pzemRef = dbRef(realtimeDb, 'powerMonitor/current');
+    onValue(pzemRef, (snapshot) => {
+        const data = snapshot.val();
+        
+        if (!data) {
+            // No data in Firebase - show "No Load" state
+            console.log("⚡ No PZEM data in Firebase");
+            updatePZEMUI({
+                voltage: 0,
+                current: 0,
+                power: 0,
+                energy: 0,
+                frequency: 0,
+                powerFactor: 0,
+                lastUpdate: '--'
+            });
+            return;
+        }
+        
+        console.log("⚡ PZEM data received:", data);
+        
+        // Check if data is fresh (within last 10 seconds)
+        const now = Date.now();
+        const dataAge = now - (data.timestamp || 0);
+        const isDataFresh = dataAge < 10000; // 10 seconds
+        
+        // Only show real values if data is fresh AND current is flowing
+        if (isDataFresh && data.current > 0.01) {
+            updatePZEMUI(data);
+        } else {
+            // Show "No Load" state (old data or no current)
+            console.log(`⚪ PZEM: No Load (current: ${data.current}, age: ${(dataAge/1000).toFixed(0)}s)`);
+            updatePZEMUI({
+                voltage: 0,
+                current: 0,
+                power: 0,
+                energy: data.energy || 0, // Keep energy value
+                frequency: 0,
+                powerFactor: 0,
+                lastUpdate: data.lastUpdate || '--'
+            });
+        }
+    });
+}
+
+// Update sensor UI with real-time data (internal function)
+function _updateSensorUIInternal(data) {
+    // Temperature
+    if (data.temperature !== undefined) {
+        document.getElementById('sensor-temperature').textContent = data.temperature.toFixed(1) + '°C';
+        updateSensorTrend('temp', data.temperature);
+    }
+    
+    // Humidity
+    if (data.humidity !== undefined) {
+        document.getElementById('sensor-humidity').textContent = data.humidity.toFixed(1) + '%';
+        updateSensorTrend('humidity', data.humidity);
+    }
+    
+    // Gas Level (ESP sends raw 0-1024)
+    if (data.gasLevel !== undefined) {
+        const gasPercent = (data.gasLevel / 1024 * 100).toFixed(1);
+        document.getElementById('sensor-gas').textContent = gasPercent + '%';
+        document.getElementById('gas-raw').textContent = `(${data.gasLevel}/1024)`;
+        
+        // Change card color based on level
+        const gasCard = document.getElementById('gas-level-card');
+        if (data.gasAlarm === true) {
+            gasCard.classList.add('gas-alarm-active');
+        } else {
+            gasCard.classList.remove('gas-alarm-active');
+        }
+    }
+    
+    // Motion
+    if (data.motion !== undefined) {
+        const motionIcon = document.getElementById('motion-icon');
+        const motionStatus = document.getElementById('sensor-motion');
+        
+        if (data.motion === true || data.motion === 1) {
+            motionIcon.textContent = '🚶';
+            motionIcon.classList.add('motion-pulse');
+            motionStatus.textContent = 'Motion Detected!';
+            motionStatus.style.color = '#ef4444';
+        } else {
+            motionIcon.textContent = '👤';
+            motionIcon.classList.remove('motion-pulse');
+            motionStatus.textContent = 'No Motion';
+            motionStatus.style.color = '#10b981';
+        }
+    }
+    
+    // Update timestamps
+    const updateTime = data.lastUpdate || new Date().toLocaleTimeString();
+    document.getElementById('temp-update').textContent = 'Last update: ' + updateTime;
+    document.getElementById('humidity-update').textContent = 'Last update: ' + updateTime;
+    document.getElementById('gas-update').textContent = 'Last update: ' + updateTime;
+    document.getElementById('motion-update').textContent = 'Last update: ' + updateTime;
+}
+
+// Throttled version to prevent excessive DOM updates and flickering (max once per 300ms)
+const updateSensorUI = throttle(_updateSensorUIInternal, 300);
+
+// Update PZEM power monitor UI with real-time data (internal function)
+function _updatePZEMUIInternal(data) {
+    // Check if current is flowing (real-time load)
+    const isLoadConnected = data.current !== undefined && data.current > 0.01;
+    
+    // Update status indicator based on current flow (with null checks)
+    const statusDot = document.getElementById('pzem-status');
+    const statusText = document.getElementById('pzem-status-text');
+    
+    if (statusDot && statusText) {
+        if (isLoadConnected) {
+            statusDot.className = 'w-3 h-3 rounded-full bg-green-500';
+            statusText.textContent = 'Active';
+            statusText.className = 'text-sm text-green-600 font-semibold';
+        } else {
+            statusDot.className = 'w-3 h-3 rounded-full bg-gray-400';
+            statusText.textContent = 'No Load';
+            statusText.className = 'text-sm text-gray-600 font-semibold';
+        }
+    }
+    
+    // Voltage - Show only if load is connected
+    const voltageEl = document.getElementById('pzem-voltage');
+    if (voltageEl) {
+        if (isLoadConnected && data.voltage !== undefined) {
+            voltageEl.textContent = data.voltage.toFixed(1) + ' V';
+        } else {
+            voltageEl.textContent = '-- V';
+        }
+    }
+    
+    // Current - Show real-time value or zero
+    const currentEl = document.getElementById('pzem-current');
+    if (currentEl) {
+        if (data.current !== undefined) {
+            currentEl.textContent = data.current.toFixed(2) + ' A';
+        } else {
+            currentEl.textContent = '0.00 A';
+        }
+    }
+    
+    // Power - Show only if load is connected
+    const powerEl = document.getElementById('pzem-power');
+    if (powerEl) {
+        if (isLoadConnected && data.power !== undefined) {
+            powerEl.textContent = Math.round(data.power) + ' W';
+        } else {
+            powerEl.textContent = '0 W';
+        }
+    }
+    
+    // Energy - ALWAYS show (accumulated consumption)
+    const energyEl = document.getElementById('pzem-energy');
+    if (energyEl && data.energy !== undefined) {
+        energyEl.textContent = data.energy.toFixed(2) + ' kWh';
+    }
+    
+    // Frequency - Show only if load is connected
+    const freqEl = document.getElementById('pzem-frequency');
+    if (freqEl) {
+        if (isLoadConnected && data.frequency !== undefined) {
+            freqEl.textContent = data.frequency.toFixed(1) + ' Hz';
+        } else {
+            freqEl.textContent = '-- Hz';
+        }
+    }
+    
+    // Power Factor - Show only if load is connected
+    const pfEl = document.getElementById('pzem-pf');
+    if (pfEl) {
+        if (isLoadConnected && data.powerFactor !== undefined) {
+            pfEl.textContent = data.powerFactor.toFixed(2);
+        } else {
+            pfEl.textContent = '--';
+        }
+    }
+    
+    // Calculate energy costs
+    calculateEnergyCost(data);
+    
+    // Update timestamp
+    const updateEl = document.getElementById('pzem-update');
+    if (updateEl) {
+        const updateTime = data.lastUpdate || new Date().toLocaleTimeString();
+        updateEl.textContent = 'Last update: ' + updateTime;
+    }
+}
+
+// Throttled version to prevent excessive DOM updates and flickering (max once per 300ms)
+const updatePZEMUI = throttle(_updatePZEMUIInternal, 300);
+
+// Calculate energy cost based on consumed energy and current power
+function calculateEnergyCost(data) {
+    const priceInput = document.getElementById('price-per-kwh');
+    if (!priceInput) return;
+    
+    const pricePerKwh = parseFloat(priceInput.value) || 6.5;
+    
+    // Total cost based on consumed energy (kWh)
+    const totalCostEl = document.getElementById('total-energy-cost');
+    if (totalCostEl && data && data.energy !== undefined) {
+        const totalCost = data.energy * pricePerKwh;
+        totalCostEl.textContent = '₹ ' + totalCost.toFixed(2);
+    }
+    
+    // Estimated daily and monthly costs based on current power consumption
+    const dailyCostEl = document.getElementById('daily-cost-estimate');
+    const monthlyCostEl = document.getElementById('monthly-cost-estimate');
+    
+    if (dailyCostEl && monthlyCostEl && data && data.power !== undefined) {
+        const currentPowerKW = data.power / 1000; // Convert W to kW
+        const dailyEnergy = currentPowerKW * 24; // kWh per day if running 24h
+        const monthlyEnergy = dailyEnergy * 30; // kWh per month
+        
+        const dailyCost = dailyEnergy * pricePerKwh;
+        const monthlyCost = monthlyEnergy * pricePerKwh;
+        
+        dailyCostEl.textContent = '₹ ' + dailyCost.toFixed(2);
+        monthlyCostEl.textContent = '₹ ' + monthlyCost.toFixed(2);
+    }
+}
+
+// Update trend indicators
+function updateSensorTrend(type, value) {
+    const trendElement = document.getElementById(type + '-trend');
+    const previous = previousSensorValues[type];
+    
+    if (previous !== null) {
+        const diff = value - previous;
+        if (Math.abs(diff) < 0.1) {
+            trendElement.innerHTML = '➡️ Stable';
+            trendElement.className = 'trend-indicator trend-stable';
+        } else if (diff > 0) {
+            trendElement.innerHTML = '⬆️ +' + diff.toFixed(1);
+            trendElement.className = 'trend-indicator trend-up';
+        } else {
+            trendElement.innerHTML = '⬇️ ' + diff.toFixed(1);
+            trendElement.className = 'trend-indicator trend-down';
+        }
+    }
+    
+    previousSensorValues[type] = value;
+}
+
+// Show gas alarm
+function showGasAlarm(data) {
+    const banner = document.getElementById('gas-alarm-banner');
+    const message = document.getElementById('gas-alarm-message');
+    
+    const timestamp = data.timestamp ? new Date(data.timestamp).toLocaleString() : new Date().toLocaleString();
+    
+    message.innerHTML = `
+        ${data.message || 'High gas concentration detected. Please ventilate the area immediately.'}<br>
+        <small class="text-sm">Level: ${data.level}/1024 | Time: ${timestamp}</small>
+    `;
+    
+    banner.classList.remove('hidden');
+    addLog("🚨 GAS ALARM: Level " + data.level, 'alarm');
+}
+
+// Hide gas alarm
+function hideGasAlarm() {
+    document.getElementById('gas-alarm-banner').classList.add('hidden');
+}
+
+// Acknowledge gas alarm
+function acknowledgeGasAlarm() {
+    hideGasAlarm();
+    addLog("✓ Gas alarm acknowledged", 'alarm');
+}
+
+// Initialize sensor charts
+function initSensorCharts() {
+    if (tempHistoryChart) return; // Already initialized
+    
+    const chartOptions = {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: { display: false }
+        },
+        scales: {
+            x: { display: true },
+            y: { display: true }
+        }
+    };
+    
+    // Temperature Chart
+    const tempCtx = document.getElementById('tempHistoryChart').getContext('2d');
+    tempHistoryChart = new Chart(tempCtx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [{
+                label: 'Temperature (°C)',
+                data: [],
+                borderColor: '#ef4444',
+                backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                tension: 0.4,
+                fill: true
+            }]
+        },
+        options: chartOptions
+    });
+    
+    // Humidity Chart
+    const humidCtx = document.getElementById('humidityHistoryChart').getContext('2d');
+    humidityHistoryChart = new Chart(humidCtx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [{
+                label: 'Humidity (%)',
+                data: [],
+                borderColor: '#3b82f6',
+                backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                tension: 0.4,
+                fill: true
+            }]
+        },
+        options: chartOptions
+    });
+    
+    // Gas Chart
+    const gasCtx = document.getElementById('gasHistoryChart').getContext('2d');
+    gasHistoryChart = new Chart(gasCtx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [{
+                label: 'Gas Level (%)',
+                data: [],
+                borderColor: '#f59e0b',
+                backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                tension: 0.4,
+                fill: true
+            }]
+        },
+        options: chartOptions
+    });
+}
+
+// Load sensor historical data
+async function loadSensorData(hours) {
+    if (!realtimeDb) {
+        console.warn("⚠️ Realtime Database not initialized");
+        return;
+    }
+    
+    const { dbRef, get } = window.firebaseModules;
+    
+    try {
+        console.log(`🔍 Loading sensor data for last ${hours} hours...`);
+        
+        // First, try to get ALL history data without query (for debugging)
+        const historyRef = dbRef(realtimeDb, 'sensors/history');
+        const snapshot = await get(historyRef);
+        
+        if (snapshot.exists()) {
+            const data = snapshot.val();
+            const dataArray = Object.values(data);
+            console.log(`📦 Total records in database: ${dataArray.length}`);
+            console.log(`📊 First record:`, dataArray[0]);
+            console.log(`📊 Last record:`, dataArray[dataArray.length - 1]);
+            console.log(`🕐 Current time (ms):`, Date.now());
+            
+            // Filter by time range manually
+            const now = Date.now();
+            const startTime = now - (hours * 60 * 60 * 1000);
+            console.log(`🔍 Time range: ${startTime} to ${now}`);
+            const filteredData = dataArray.filter(d => d.timestamp >= startTime && d.timestamp <= now);
+            
+            console.log(`✅ Filtered ${filteredData.length} records for ${hours}h range`);
+            
+            if (filteredData.length > 0) {
+                const sortedData = filteredData.sort((a, b) => a.timestamp - b.timestamp);
+                updateSensorCharts(sortedData);
+                calculateSensorStats(sortedData);
+            } else {
+                console.log('⚠️ No data in selected time range');
+                updateSensorCharts([]);
+            }
+        } else {
+            console.log('⚠️ No sensor history found in database');
+            console.log('💡 Historical data will appear after 1 minute of running');
+            updateSensorCharts([]);
+        }
+    } catch (error) {
+        console.error('❌ Error loading sensor data:', error);
+        updateSensorCharts([]);
+    }
+}
+
+// Start real-time sensor data listener
+function startSensorRealtimeListener(hours = currentSensorTimeRange) {
+    if (!realtimeDb) {
+        console.warn("⚠️ Realtime Database not initialized");
+        return;
+    }
+    
+    // Stop existing listener if any
+    if (sensorDataListener) {
+        sensorDataListener();
+        sensorDataListener = null;
+    }
+    
+    const { dbRef, onValue } = window.firebaseModules;
+    
+    try {
+        console.log(`🔴 Starting real-time sensor listener for ${hours}h...`);
+        
+        const historyRef = dbRef(realtimeDb, 'sensors/history');
+        
+        sensorDataListener = onValue(historyRef, (snapshot) => {
+            if (snapshot.exists() && isAnalyticsPageActive) {
+                const data = snapshot.val();
+                const dataArray = Object.values(data);
+                
+                // Filter by time range
+                const now = Date.now();
+                const startTime = now - (hours * 60 * 60 * 1000);
+                const filteredData = dataArray.filter(d => d.timestamp >= startTime && d.timestamp <= now);
+                
+                console.log(`📊 Real-time sensor update: ${filteredData.length} records`);
+                
+                if (filteredData.length > 0) {
+                    const sortedData = filteredData.sort((a, b) => a.timestamp - b.timestamp);
+                    updateSensorCharts(sortedData);
+                    calculateSensorStats(sortedData);
+                }
+            }
+        }, (error) => {
+            console.error('❌ Real-time sensor listener error:', error);
+        });
+        
+        console.log('✅ Real-time sensor listener started');
+    } catch (error) {
+        console.error('❌ Error starting sensor listener:', error);
+    }
+}
+
+// Stop real-time sensor listener
+function stopSensorRealtimeListener() {
+    if (sensorDataListener) {
+        console.log('🛑 Stopping real-time sensor listener...');
+        sensorDataListener();
+        sensorDataListener = null;
+    }
+}
+
+
+// Update sensor charts with data
+function updateSensorCharts(dataArray) {
+    let labels = [];
+    let tempData = [];
+    let humidData = [];
+    let gasData = [];
+    
+    if (dataArray && dataArray.length > 0) {
+        labels = dataArray.map(d => new Date(d.timestamp).toLocaleTimeString());
+        tempData = dataArray.map(d => d.temperature || 0);
+        humidData = dataArray.map(d => d.humidity || 0);
+        gasData = dataArray.map(d => (d.gasLevel / 1024 * 100) || 0);
+    } else {
+        labels = ['No Data'];
+        tempData = [0];
+        humidData = [0];
+        gasData = [0];
+    }
+    
+    // Update charts
+    if (tempHistoryChart) {
+        tempHistoryChart.data.labels = labels;
+        tempHistoryChart.data.datasets[0].data = tempData;
+        tempHistoryChart.update('none');
+    }
+    
+    if (humidityHistoryChart) {
+        humidityHistoryChart.data.labels = labels;
+        humidityHistoryChart.data.datasets[0].data = humidData;
+        humidityHistoryChart.update('none');
+    }
+    
+    if (gasHistoryChart) {
+        gasHistoryChart.data.labels = labels;
+        gasHistoryChart.data.datasets[0].data = gasData;
+        gasHistoryChart.update('none');
+    }
+}
+
+// Calculate sensor statistics
+function calculateSensorStats(dataArray) {
+    if (!dataArray || dataArray.length === 0) {
+        // Set to default values
+        document.getElementById('temp-min').textContent = '--°C';
+        document.getElementById('temp-max').textContent = '--°C';
+        document.getElementById('temp-avg').textContent = '--°C';
+        document.getElementById('humidity-min').textContent = '--%';
+        document.getElementById('humidity-max').textContent = '--%';
+        document.getElementById('humidity-avg').textContent = '--%';
+        document.getElementById('motion-count').textContent = '0';
+        return;
+    }
+    
+    // Filter out invalid temperature readings (0 or unrealistic values)
+    const temps = dataArray
+        .map(d => parseFloat(d.temperature))
+        .filter(t => !isNaN(t) && t > 0 && t < 60); // Valid range: 0-60°C
+    
+    // Filter out invalid humidity readings (0 or > 100)
+    const humids = dataArray
+        .map(d => parseFloat(d.humidity))
+        .filter(h => !isNaN(h) && h > 0 && h <= 100); // Valid range: 0-100%
+    
+    if (temps.length > 0) {
+        const tempMin = Math.min(...temps);
+        const tempMax = Math.max(...temps);
+        const tempAvg = temps.reduce((a, b) => a + b, 0) / temps.length;
+        
+        document.getElementById('temp-min').textContent = tempMin.toFixed(1) + '°C';
+        document.getElementById('temp-max').textContent = tempMax.toFixed(1) + '°C';
+        document.getElementById('temp-avg').textContent = tempAvg.toFixed(1) + '°C';
+    } else {
+        document.getElementById('temp-min').textContent = '--°C';
+        document.getElementById('temp-max').textContent = '--°C';
+        document.getElementById('temp-avg').textContent = '--°C';
+    }
+    
+    if (humids.length > 0) {
+        const humidMin = Math.min(...humids);
+        const humidMax = Math.max(...humids);
+        const humidAvg = humids.reduce((a, b) => a + b, 0) / humids.length;
+        
+        document.getElementById('humidity-min').textContent = humidMin.toFixed(1) + '%';
+        document.getElementById('humidity-max').textContent = humidMax.toFixed(1) + '%';
+        document.getElementById('humidity-avg').textContent = humidAvg.toFixed(1) + '%';
+    } else {
+        document.getElementById('humidity-min').textContent = '--%';
+        document.getElementById('humidity-max').textContent = '--%';
+        document.getElementById('humidity-avg').textContent = '--%';
+    }
+    
+    // Motion count - count motion events (when motion = true or 1)
+    const motionEvents = dataArray.filter(d => d.motion === true || d.motion === 1 || d.motion === '1');
+    document.getElementById('motion-count').textContent = motionEvents.length;
+}
+
+// Load logs from Firebase
+async function loadLogsFromFirebase() {
+    try {
+        const { dbRef, get } = window.firebaseModules;
+        const logsRef = dbRef(realtimeDb, 'logs');
+        const snapshot = await get(logsRef);
+        
+        if (snapshot.exists()) {
+            const data = snapshot.val();
+            logEntries = Object.values(data).sort((a, b) => a.timestamp - b.timestamp);
+            renderLog();
+            console.log(`📝 Loaded ${logEntries.length} logs from Firebase`);
+        }
+    } catch (error) {
+        console.error('Error loading logs:', error);
+    }
+}
+
+// Load device usage analytics
+async function loadDeviceUsageAnalytics(hours = currentDeviceTimeRange) {
+    try {
+        const { dbRef, get } = window.firebaseModules;
+        const usageRef = dbRef(realtimeDb, 'deviceUsage');
+        const snapshot = await get(usageRef);
+        
+        if (!snapshot.exists()) {
+            console.log('No device usage data yet');
+            return;
+        }
+        
+        const data = snapshot.val();
+        const usageArray = Object.values(data);
+        
+        // Filter by time range
+        const now = Date.now();
+        const startTime = now - (hours * 60 * 60 * 1000);
+        const filteredData = usageArray.filter(d => d.timestamp >= startTime && d.timestamp <= now);
+        
+        console.log(`📊 Loaded ${filteredData.length} device usage records for ${hours}h range`);
+        
+        // Count actions per device
+        const deviceCounts = {};
+        
+        filteredData.forEach(entry => {
+            if (!deviceCounts[entry.deviceName]) {
+                deviceCounts[entry.deviceName] = 0;
+            }
+            deviceCounts[entry.deviceName]++;
+        });
+        
+        // Update charts
+        updateDeviceUsageCharts(deviceCounts, filteredData);
+        updateDeviceTimelineCharts(filteredData);
+        
+    } catch (error) {
+        console.error('Error loading device usage:', error);
+    }
+}
+
+// Start real-time device usage listener
+function startDeviceUsageRealtimeListener(hours = currentDeviceTimeRange) {
+    if (!realtimeDb) {
+        console.warn("⚠️ Realtime Database not initialized");
+        return;
+    }
+    
+    // Stop existing listener if any
+    if (deviceUsageListener) {
+        deviceUsageListener();
+        deviceUsageListener = null;
+    }
+    
+    const { dbRef, onValue } = window.firebaseModules;
+    
+    try {
+        console.log(`🔴 Starting real-time device usage listener for ${hours}h...`);
+        
+        const usageRef = dbRef(realtimeDb, 'deviceUsage');
+        
+        deviceUsageListener = onValue(usageRef, (snapshot) => {
+            if (snapshot.exists() && isAnalyticsPageActive) {
+                const data = snapshot.val();
+                const usageArray = Object.values(data);
+                
+                // Filter by time range
+                const now = Date.now();
+                const startTime = now - (hours * 60 * 60 * 1000);
+                const filteredData = usageArray.filter(d => d.timestamp >= startTime && d.timestamp <= now);
+                
+                console.log(`📊 Real-time device usage update: ${filteredData.length} records`);
+                
+                // Count actions per device
+                const deviceCounts = {};
+                filteredData.forEach(entry => {
+                    if (!deviceCounts[entry.deviceName]) {
+                        deviceCounts[entry.deviceName] = 0;
+                    }
+                    deviceCounts[entry.deviceName]++;
+                });
+                
+                // Update charts
+                updateDeviceUsageCharts(deviceCounts, filteredData);
+                updateDeviceTimelineCharts(filteredData);
+            }
+        }, (error) => {
+            console.error('❌ Real-time device usage listener error:', error);
+        });
+        
+        console.log('✅ Real-time device usage listener started');
+    } catch (error) {
+        console.error('❌ Error starting device usage listener:', error);
+    }
+}
+
+// Stop real-time device usage listener
+function stopDeviceUsageRealtimeListener() {
+    if (deviceUsageListener) {
+        console.log('🛑 Stopping real-time device usage listener...');
+        deviceUsageListener();
+        deviceUsageListener = null;
+    }
+}
+
+
+// Update device usage charts
+function updateDeviceUsageCharts(deviceCounts, usageArray) {
+    const deviceNames = Object.keys(deviceCounts);
+    const counts = Object.values(deviceCounts);
+    
+    // Update Pie Chart (Device Usage)
+    if (pieChart) {
+        pieChart.data.labels = deviceNames;
+        pieChart.data.datasets[0].data = counts;
+        pieChart.update();
+    }
+    
+    // Update Bar Chart (Switch Count)
+    if (barChart) {
+        barChart.data.labels = deviceNames;
+        barChart.data.datasets[0].data = counts;
+        barChart.update();
+    }
+    
+    // Update Heatmap (24-hour activity)
+    updateActivityHeatmap(usageArray);
+}
+
+// Update device timeline charts
+function updateDeviceTimelineCharts(usageArray) {
+    // Group data by device
+    const lightDevices = {};
+    const fanDevices = {};
+    
+    usageArray.forEach(entry => {
+        if (entry.deviceType === 'light') {
+            if (!lightDevices[entry.deviceName]) {
+                lightDevices[entry.deviceName] = [];
+            }
+            lightDevices[entry.deviceName].push({
+                timestamp: entry.timestamp,
+                state: entry.action === 'ON' ? 1 : 0
+            });
+        } else if (entry.deviceType === 'fan') {
+            if (!fanDevices[entry.deviceName]) {
+                fanDevices[entry.deviceName] = [];
+            }
+            fanDevices[entry.deviceName].push({
+                timestamp: entry.timestamp,
+                speed: entry.value || 0
+            });
+        }
+    });
+    
+    // Update Lights Timeline Chart with professional colors
+    if (lightsTimelineChart) {
+        const datasets = [];
+        let colorIndex = 0;
+        
+        Object.keys(lightDevices).forEach(deviceName => {
+            const data = lightDevices[deviceName].sort((a, b) => a.timestamp - b.timestamp);
+            const color = chartColors.primary[colorIndex % chartColors.primary.length];
+            
+            datasets.push({
+                label: deviceName,
+                data: data.map(d => ({ x: new Date(d.timestamp), y: d.state })),
+                borderColor: color,
+                backgroundColor: color,
+                stepped: true,
+                tension: 0,
+                borderWidth: 3,
+                pointRadius: 4,
+                pointHoverRadius: 6,
+                fill: false
+            });
+            colorIndex++;
+        });
+        
+        lightsTimelineChart.data.datasets = datasets;
+        lightsTimelineChart.update('none');
+    }
+    
+    // Update Fans Timeline Chart with professional colors
+    if (fansTimelineChart) {
+        const datasets = [];
+        let colorIndex = 0;
+        
+        Object.keys(fanDevices).forEach(deviceName => {
+            const data = fanDevices[deviceName].sort((a, b) => a.timestamp - b.timestamp);
+            const color = chartColors.primary[colorIndex % chartColors.primary.length];
+            const bgColor = chartColors.gradient[colorIndex % chartColors.gradient.length];
+            
+            datasets.push({
+                label: deviceName,
+                data: data.map(d => ({ x: new Date(d.timestamp), y: d.speed })),
+                borderColor: color,
+                backgroundColor: bgColor,
+                tension: 0.4,
+                borderWidth: 3,
+                pointRadius: 4,
+                pointHoverRadius: 6,
+                fill: true
+            });
+            colorIndex++;
+        });
+        
+        fansTimelineChart.data.datasets = datasets;
+        fansTimelineChart.update('none');
+    }
+}
+
+// Update 24-hour activity heatmap
+function updateActivityHeatmap(usageArray) {
+    const heatmapContainer = document.getElementById('heatmap');
+    if (!heatmapContainer) return;
+    
+    // Create 24 hour buckets
+    const hourCounts = new Array(24).fill(0);
+    
+    usageArray.forEach(entry => {
+        const hour = new Date(entry.timestamp).getHours();
+        hourCounts[hour]++;
+    });
+    
+    const maxCount = Math.max(...hourCounts, 1);
+    
+    heatmapContainer.innerHTML = '';
+    
+    hourCounts.forEach((count, hour) => {
+        const intensity = count / maxCount;
+        
+        // Professional gradient coloring with multiple levels
+        let backgroundColor, textColor;
+        if (count === 0) {
+            backgroundColor = 'rgba(229, 231, 235, 0.5)'; // Light grey for no activity
+            textColor = '#9CA3AF';
+        } else if (intensity < 0.25) {
+            backgroundColor = 'rgba(147, 197, 253, 0.5)'; // Light blue
+            textColor = '#1E40AF';
+        } else if (intensity < 0.5) {
+            backgroundColor = 'rgba(96, 165, 250, 0.7)'; // Medium blue
+            textColor = '#1E3A8A';
+        } else if (intensity < 0.75) {
+            backgroundColor = 'rgba(59, 130, 246, 0.85)'; // Strong blue
+            textColor = '#FFFFFF';
+        } else {
+            backgroundColor = 'rgba(37, 99, 235, 1)'; // Deep blue for highest activity
+            textColor = '#FFFFFF';
+        }
+        
+        const div = document.createElement('div');
+        div.className = 'flex flex-col items-center justify-center rounded-lg shadow-sm transition-all hover:scale-110 cursor-pointer';
+        div.style.backgroundColor = backgroundColor;
+        div.style.color = textColor;
+        div.style.padding = '8px';
+        div.style.minHeight = '60px';
+        div.style.fontWeight = '600';
+        
+        const hourLabel = document.createElement('div');
+        hourLabel.textContent = hour.toString().padStart(2, '0') + ':00';
+        hourLabel.style.fontSize = '11px';
+        hourLabel.style.marginBottom = '4px';
+        
+        const countLabel = document.createElement('div');
+        countLabel.textContent = count;
+        countLabel.style.fontSize = '16px';
+        countLabel.style.fontWeight = 'bold';
+        
+        div.appendChild(hourLabel);
+        div.appendChild(countLabel);
+        div.title = `${hour}:00 - ${count} activities`;
+        
+        heatmapContainer.appendChild(div);
+    });
+}
+
+// Change device time range
+function changeDeviceTimeRange(hours) {
+    currentDeviceTimeRange = hours;
+    
+    // Update button states for device time range
+    document.querySelectorAll('.device-time-btn').forEach(btn => {
+        if (parseInt(btn.dataset.range) === hours) {
+            btn.className = 'device-time-btn px-4 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition';
+        } else {
+            btn.className = 'device-time-btn px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300 transition';
+        }
+    });
+    
+    // Reload analytics and restart listener with new time range
+    loadDeviceUsageAnalytics(hours);
+    if (isAnalyticsPageActive) {
+        startDeviceUsageRealtimeListener(hours);
+    }
+}
+
+// Change sensor time range
+function changeSensorTimeRange(hours) {
+    currentSensorTimeRange = hours;
+    
+    // Update button states
+    document.querySelectorAll('.time-range-btn').forEach(btn => {
+        if (parseInt(btn.dataset.range) === hours) {
+            btn.className = 'time-range-btn px-4 py-2 rounded-lg bg-indigo-600 text-white';
+        } else {
+            btn.className = 'time-range-btn px-4 py-2 rounded-lg bg-gray-200';
+        }
+    });
+    
+    // Reload data and restart listener with new time range
+    loadSensorData(hours);
+    if (isAnalyticsPageActive) {
+        startSensorRealtimeListener(hours);
+    }
+}
+
+// ========== PZEM ANALYTICS FUNCTIONS ==========
+
+// Initialize PZEM charts
+function initPZEMCharts() {
+    if (powerHistoryChart) return; // Already initialized
+    
+    const chartOptions = {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: {
+            mode: 'index',
+            intersect: false
+        },
+        plugins: {
+            legend: { 
+                display: true,
+                position: 'top',
+                labels: {
+                    font: { size: 12, weight: '600' },
+                    padding: 10
+                }
+            },
+            tooltip: {
+                backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                padding: 12,
+                cornerRadius: 8,
+                titleFont: { size: 13, weight: 'bold' },
+                bodyFont: { size: 12 }
+            }
+        },
+        scales: {
+            x: { 
+                type: 'time',
+                time: {
+                    unit: 'minute',
+                    displayFormats: {
+                        minute: 'HH:mm',
+                        hour: 'HH:mm'
+                    },
+                    tooltipFormat: 'MMM dd, HH:mm:ss'
+                },
+                grid: {
+                    color: 'rgba(0, 0, 0, 0.05)'
+                },
+                ticks: {
+                    font: { size: 11, weight: '600' }
+                },
+                title: {
+                    display: true,
+                    text: 'Time',
+                    font: { size: 12, weight: 'bold' }
+                }
+            },
+            y: { 
+                display: true,
+                grid: {
+                    color: 'rgba(0, 0, 0, 0.08)'
+                },
+                ticks: {
+                    font: { size: 11, weight: '600' }
+                }
+            }
+        }
+    };
+    
+    // Power Chart
+    const powerCtx = document.getElementById('powerHistoryChart').getContext('2d');
+    powerHistoryChart = new Chart(powerCtx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [{
+                label: 'Power (W)',
+                data: [],
+                borderColor: '#10b981',
+                backgroundColor: 'rgba(16, 185, 129, 0.2)',
+                tension: 0.4,
+                fill: true,
+                borderWidth: 2,
+                pointRadius: 2,
+                pointHoverRadius: 5
+            }]
+        },
+        options: {
+            ...chartOptions,
+            scales: {
+                ...chartOptions.scales,
+                y: {
+                    ...chartOptions.scales.y,
+                    title: {
+                        display: true,
+                        text: 'Power (Watts)',
+                        font: { size: 12, weight: 'bold' }
+                    }
+                }
+            }
+        }
+    });
+    
+    // Voltage Chart
+    const voltageCtx = document.getElementById('voltageHistoryChart').getContext('2d');
+    voltageHistoryChart = new Chart(voltageCtx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [{
+                label: 'Voltage (V)',
+                data: [],
+                borderColor: '#eab308',
+                backgroundColor: 'rgba(234, 179, 8, 0.2)',
+                tension: 0.4,
+                fill: true,
+                borderWidth: 2,
+                pointRadius: 2,
+                pointHoverRadius: 5
+            }]
+        },
+        options: {
+            ...chartOptions,
+            scales: {
+                ...chartOptions.scales,
+                y: {
+                    ...chartOptions.scales.y,
+                    title: {
+                        display: true,
+                        text: 'Voltage (Volts)',
+                        font: { size: 12, weight: 'bold' }
+                    }
+                }
+            }
+        }
+    });
+    
+    // Current Chart
+    const currentCtx = document.getElementById('currentHistoryChart').getContext('2d');
+    currentHistoryChart = new Chart(currentCtx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [{
+                label: 'Current (A)',
+                data: [],
+                borderColor: '#3b82f6',
+                backgroundColor: 'rgba(59, 130, 246, 0.2)',
+                tension: 0.4,
+                fill: true,
+                borderWidth: 2,
+                pointRadius: 2,
+                pointHoverRadius: 5
+            }]
+        },
+        options: {
+            ...chartOptions,
+            scales: {
+                ...chartOptions.scales,
+                y: {
+                    ...chartOptions.scales.y,
+                    title: {
+                        display: true,
+                        text: 'Current (Amperes)',
+                        font: { size: 12, weight: 'bold' }
+                    }
+                }
+            }
+        }
+    });
+    
+    // Energy Chart
+    const energyCtx = document.getElementById('energyHistoryChart').getContext('2d');
+    energyHistoryChart = new Chart(energyCtx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [{
+                label: 'Energy (kWh)',
+                data: [],
+                borderColor: '#a855f7',
+                backgroundColor: 'rgba(168, 85, 247, 0.2)',
+                tension: 0.4,
+                fill: true,
+                borderWidth: 2,
+                pointRadius: 2,
+                pointHoverRadius: 5
+            }]
+        },
+        options: {
+            ...chartOptions,
+            scales: {
+                ...chartOptions.scales,
+                y: {
+                    ...chartOptions.scales.y,
+                    title: {
+                        display: true,
+                        text: 'Energy (kWh)',
+                        font: { size: 12, weight: 'bold' }
+                    }
+                }
+            }
+        }
+    });
+}
+
+// Load PZEM data from Firebase
+async function loadPZEMData(hours = 1) {
+    if (!realtimeDb) {
+        console.warn("⚠️ Realtime Database not initialized");
+        return;
+    }
+    
+    const { dbRef, get } = window.firebaseModules;
+    
+    try {
+        console.log(`🔍 Loading PZEM data for last ${hours} hours...`);
+        
+        const historyRef = dbRef(realtimeDb, 'powerMonitor/history');
+        const snapshot = await get(historyRef);
+        
+        if (snapshot.exists()) {
+            const data = snapshot.val();
+            const dataArray = Object.values(data);
+            console.log(`📦 Total PZEM records: ${dataArray.length}`);
+            
+            // Filter by time range
+            const now = Date.now();
+            const startTime = now - (hours * 60 * 60 * 1000);
+            const filteredData = dataArray.filter(d => d.timestamp >= startTime && d.timestamp <= now);
+            
+            console.log(`✅ Filtered ${filteredData.length} PZEM records for ${hours}h range`);
+            
+            if (filteredData.length > 0) {
+                const sortedData = filteredData.sort((a, b) => a.timestamp - b.timestamp);
+                updatePZEMCharts(sortedData);
+                calculatePZEMStats(sortedData);
+            } else {
+                console.log('⚠️ No PZEM data in selected time range');
+                updatePZEMCharts([]);
+            }
+        } else {
+            console.log('⚠️ No PZEM history found in database');
+            console.log('💡 PZEM historical data will appear when load is connected');
+            updatePZEMCharts([]);
+        }
+    } catch (error) {
+        console.error('❌ Error loading PZEM data:', error);
+        updatePZEMCharts([]);
+    }
+}
+
+// Start real-time PZEM data listener
+function startPZEMRealtimeListener(hours = currentPZEMTimeRange) {
+    if (!realtimeDb) {
+        console.warn("⚠️ Realtime Database not initialized");
+        return;
+    }
+    
+    // Stop existing listener if any
+    if (pzemDataListener) {
+        pzemDataListener();
+        pzemDataListener = null;
+    }
+    
+    const { dbRef, onValue } = window.firebaseModules;
+    
+    try {
+        console.log(`🔴 Starting real-time PZEM listener for ${hours}h...`);
+        
+        const historyRef = dbRef(realtimeDb, 'powerMonitor/history');
+        
+        pzemDataListener = onValue(historyRef, (snapshot) => {
+            if (snapshot.exists() && isAnalyticsPageActive) {
+                const data = snapshot.val();
+                const dataArray = Object.values(data);
+                
+                // Filter by time range
+                const now = Date.now();
+                const startTime = now - (hours * 60 * 60 * 1000);
+                const filteredData = dataArray.filter(d => d.timestamp >= startTime && d.timestamp <= now);
+                
+                console.log(`📊 Real-time PZEM update: ${filteredData.length} records`);
+                
+                if (filteredData.length > 0) {
+                    const sortedData = filteredData.sort((a, b) => a.timestamp - b.timestamp);
+                    updatePZEMCharts(sortedData);
+                    calculatePZEMStats(sortedData);
+                }
+            }
+        }, (error) => {
+            console.error('❌ Real-time PZEM listener error:', error);
+        });
+        
+        console.log('✅ Real-time PZEM listener started');
+    } catch (error) {
+        console.error('❌ Error starting PZEM listener:', error);
+    }
+}
+
+// Stop real-time PZEM listener
+function stopPZEMRealtimeListener() {
+    if (pzemDataListener) {
+        console.log('🛑 Stopping real-time PZEM listener...');
+        pzemDataListener();
+        pzemDataListener = null;
+    }
+}
+
+
+// Update PZEM charts with data
+function updatePZEMCharts(dataArray) {
+    let labels = [];
+    let powerData = [];
+    let voltageData = [];
+    let currentData = [];
+    let energyData = [];
+    
+    if (dataArray && dataArray.length > 0) {
+        // Filter and validate data
+        const validData = dataArray.filter(d => 
+            d.timestamp && 
+            !isNaN(d.power) && 
+            !isNaN(d.voltage) && 
+            !isNaN(d.current) && 
+            !isNaN(d.energy)
+        );
+        
+        if (validData.length > 0) {
+            // Use timestamp objects for proper time-series display
+            labels = validData.map(d => new Date(d.timestamp));
+            powerData = validData.map(d => parseFloat(d.power) || 0);
+            voltageData = validData.map(d => parseFloat(d.voltage) || 0);
+            currentData = validData.map(d => parseFloat(d.current) || 0);
+            energyData = validData.map(d => parseFloat(d.energy) || 0);
+        } else {
+            // No valid data
+            labels = [new Date()];
+            powerData = [0];
+            voltageData = [0];
+            currentData = [0];
+            energyData = [0];
+        }
+    } else {
+        // No data at all
+        labels = [new Date()];
+        powerData = [0];
+        voltageData = [0];
+        currentData = [0];
+        energyData = [0];
+    }
+    
+    // Update charts with animations disabled for better performance
+    if (powerHistoryChart) {
+        powerHistoryChart.data.labels = labels;
+        powerHistoryChart.data.datasets[0].data = powerData;
+        powerHistoryChart.update('none');
+    }
+    
+    if (voltageHistoryChart) {
+        voltageHistoryChart.data.labels = labels;
+        voltageHistoryChart.data.datasets[0].data = voltageData;
+        voltageHistoryChart.update('none');
+    }
+    
+    if (currentHistoryChart) {
+        currentHistoryChart.data.labels = labels;
+        currentHistoryChart.data.datasets[0].data = currentData;
+        currentHistoryChart.update('none');
+    }
+    
+    if (energyHistoryChart) {
+        energyHistoryChart.data.labels = labels;
+        energyHistoryChart.data.datasets[0].data = energyData;
+        energyHistoryChart.update('none');
+    }
+}
+
+// Calculate PZEM statistics
+function calculatePZEMStats(dataArray) {
+    if (!dataArray || dataArray.length === 0) {
+        document.getElementById('pzem-peak-power').textContent = '-- W';
+        document.getElementById('pzem-peak-time').textContent = '--';
+        document.getElementById('pzem-avg-power').textContent = '-- W';
+        document.getElementById('pzem-total-energy').textContent = '-- kWh';
+        document.getElementById('pzem-energy-cost').textContent = '₹ --';
+        document.getElementById('pzem-runtime').textContent = '-- hrs';
+        return;
+    }
+    
+    // Filter out invalid data and sort by timestamp
+    const validData = dataArray.filter(d => 
+        d.power !== undefined && 
+        d.power !== null && 
+        !isNaN(d.power) &&
+        d.power >= 0 &&
+        d.power < 10000 &&  // Reject unrealistic power readings > 10kW
+        d.timestamp !== undefined
+    ).sort((a, b) => a.timestamp - b.timestamp);
+    
+    if (validData.length === 0) {
+        document.getElementById('pzem-peak-power').textContent = '0 W';
+        document.getElementById('pzem-peak-time').textContent = 'No data';
+        document.getElementById('pzem-avg-power').textContent = '0 W';
+        document.getElementById('pzem-total-energy').textContent = '0.00 kWh';
+        document.getElementById('pzem-energy-cost').textContent = '₹ 0.00';
+        document.getElementById('pzem-runtime').textContent = '0.0 hrs';
+        return;
+    }
+    
+    // Extract valid power values with additional validation
+    const powers = validData.map(d => parseFloat(d.power)).filter(p => !isNaN(p) && p >= 0 && p < 10000);
+    
+    // Peak power with proper index mapping
+    if (powers.length > 0) {
+        const maxPower = Math.max(...powers);
+        const maxDataPoint = validData.find(d => parseFloat(d.power) === maxPower);
+        
+        if (maxDataPoint) {
+            const maxTime = new Date(maxDataPoint.timestamp).toLocaleString('en-IN', {
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+            
+            document.getElementById('pzem-peak-power').textContent = maxPower.toFixed(2) + ' W';
+            document.getElementById('pzem-peak-time').textContent = maxTime;
+        }
+        
+        // Average power (only count when power > 0.5W to exclude noise)
+        const activePowers = powers.filter(p => p > 0.5);
+        if (activePowers.length > 0) {
+            const avgPower = activePowers.reduce((a, b) => a + b, 0) / activePowers.length;
+            document.getElementById('pzem-avg-power').textContent = avgPower.toFixed(2) + ' W';
+        } else {
+            document.getElementById('pzem-avg-power').textContent = '0 W';
+        }
+    }
+    
+    // Total energy consumption - use latest reading minus earliest reading in selected range
+    const energies = validData
+        .map(d => parseFloat(d.energy))
+        .filter(e => !isNaN(e) && e >= 0 && e < 1000000); // Filter unrealistic energy values
+    
+    if (energies.length >= 2) {
+        // Sort to get first and last values
+        const sortedEnergies = [...energies].sort((a, b) => a - b);
+        const firstEnergy = sortedEnergies[0];
+        const lastEnergy = sortedEnergies[sortedEnergies.length - 1];
+        
+        // Calculate difference
+        let totalEnergy = lastEnergy - firstEnergy;
+        
+        // If negative or too large, it likely means PZEM was reset, use last value only
+        if (totalEnergy < 0 || totalEnergy > 1000) {
+            totalEnergy = lastEnergy;
+        }
+        
+        const pricePerKwh = parseFloat(document.getElementById('price-per-kwh')?.value) || 6.5;
+        const totalCost = totalEnergy * pricePerKwh;
+        
+        document.getElementById('pzem-total-energy').textContent = totalEnergy.toFixed(3) + ' kWh';
+        document.getElementById('pzem-energy-cost').textContent = '₹ ' + totalCost.toFixed(2);
+    } else if (energies.length === 1) {
+        // Only one reading, use it directly
+        const totalEnergy = energies[0];
+        const pricePerKwh = parseFloat(document.getElementById('price-per-kwh')?.value) || 6.5;
+        const totalCost = totalEnergy * pricePerKwh;
+        
+        document.getElementById('pzem-total-energy').textContent = totalEnergy.toFixed(3) + ' kWh';
+        document.getElementById('pzem-energy-cost').textContent = '₹ ' + totalCost.toFixed(2);
+    } else {
+        document.getElementById('pzem-total-energy').textContent = '0.000 kWh';
+        document.getElementById('pzem-energy-cost').textContent = '₹ 0.00';
+    }
+    
+    // Runtime calculation - count time when current > 0.1A (meaningful load)
+    const activeRecords = validData.filter(d => {
+        const current = parseFloat(d.current);
+        return !isNaN(current) && current > 0.1; // Only count when meaningful current
+    });
+    
+    if (activeRecords.length > 1) {
+        // Calculate actual time span of active records
+        const firstActiveTime = activeRecords[0].timestamp;
+        const lastActiveTime = activeRecords[activeRecords.length - 1].timestamp;
+        const timeSpanMs = lastActiveTime - firstActiveTime;
+        const totalHours = timeSpanMs / (1000 * 60 * 60); // Convert ms to hours
+        
+        // Cap at reasonable maximum (selected time range)
+        const maxHours = currentPZEMTimeRange || 24;
+        const cappedHours = Math.min(totalHours, maxHours);
+        
+        document.getElementById('pzem-runtime').textContent = cappedHours.toFixed(2) + ' hrs';
+    } else if (activeRecords.length === 1) {
+        // Only one active record
+        document.getElementById('pzem-runtime').textContent = '0.01 hrs';
+    } else {
+        document.getElementById('pzem-runtime').textContent = '0.00 hrs';
+    }
+}
+
+// Change PZEM time range
+function changePZEMTimeRange(hours) {
+    currentPZEMTimeRange = hours;
+    
+    // Update button states
+    document.querySelectorAll('.pzem-time-range-btn').forEach(btn => {
+        if (parseInt(btn.dataset.range) === hours) {
+            btn.className = 'pzem-time-range-btn px-4 py-2 rounded-lg bg-indigo-600 text-white';
+        } else {
+            btn.className = 'pzem-time-range-btn px-4 py-2 rounded-lg bg-gray-200';
+        }
+    });
+    
+    // Reload data and restart listener with new time range
+    loadPZEMData(hours);
+    if (isAnalyticsPageActive) {
+        startPZEMRealtimeListener(hours);
+    }
+}
+
+// ========== END PZEM ANALYTICS FUNCTIONS ==========
+
+// ========== END SENSOR FUNCTIONS ==========
+
+// Page Navigation
+function switchPage(pageName) {
+    ['dashboard', 'analytics', 'logs'].forEach(page => {
+        document.getElementById(`page-${page}`).classList.add('hidden');
+    });
+    document.getElementById(`page-${pageName}`).classList.remove('hidden');
+    
+    document.querySelectorAll('.nav-tab').forEach(tab => {
+        if (tab.dataset.page === pageName) {
+            tab.classList.add('active');
+        } else {
+            tab.classList.remove('active');
+        }
+    });
+    
+    // Load data when switching pages
+    if (pageName === 'analytics') {
+        isAnalyticsPageActive = true;
+        
+        // Initialize charts
+        initSensorCharts();
+        initPZEMCharts();
+        
+        // Load initial data
+        loadSensorData(currentSensorTimeRange);
+        loadPZEMData(currentPZEMTimeRange);
+        loadDeviceUsageAnalytics();
+        
+        // Start real-time listeners for live updates
+        console.log('🔴 Starting all real-time analytics listeners...');
+        startSensorRealtimeListener(currentSensorTimeRange);
+        startPZEMRealtimeListener(currentPZEMTimeRange);
+        startDeviceUsageRealtimeListener(currentDeviceTimeRange);
+    } else {
+        // Stop real-time listeners when leaving analytics page
+        if (isAnalyticsPageActive) {
+            isAnalyticsPageActive = false;
+            console.log('🛑 Stopping all real-time analytics listeners...');
+            stopSensorRealtimeListener();
+            stopPZEMRealtimeListener();
+            stopDeviceUsageRealtimeListener();
+        }
+        
+        if (pageName === 'logs') {
+            loadLogsFromFirebase();
+            loadAlarmHistory(); // Load fire alarm history
+        }
+    }
+}
+
+// Event Listeners
+document.addEventListener('DOMContentLoaded', () => {
+    console.log("DOM Content Loaded");
+    
+    // Detect mobile and show help text
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth <= 768;
+    if (isMobile) {
+        const mobileHelp = document.getElementById('mobile-help');
+        if (mobileHelp) {
+            mobileHelp.classList.remove('hidden');
+        }
+        console.log("📱 Mobile device detected");
+    }
+    
+    // Auth Forms
+    const authContainer = document.getElementById('auth-container');
+    const signupContainer = document.getElementById('signup-container');
+    const forgotPasswordContainer = document.getElementById('forgot-password-container');
+    const mainApp = document.getElementById('main-app');
+    
+    console.log("Auth elements:", { authContainer, signupContainer, forgotPasswordContainer, mainApp });
+    
+    document.getElementById('switch-to-signup').addEventListener('click', () => {
+        authContainer.classList.add('hidden');
+        signupContainer.classList.remove('hidden');
+        forgotPasswordContainer.classList.add('hidden');
+    });
+    
+    document.getElementById('switch-to-login').addEventListener('click', () => {
+        signupContainer.classList.add('hidden');
+        authContainer.classList.remove('hidden');
+        forgotPasswordContainer.classList.add('hidden');
+    });
+    
+    document.getElementById('forgot-password-btn').addEventListener('click', () => {
+        authContainer.classList.add('hidden');
+        signupContainer.classList.add('hidden');
+        forgotPasswordContainer.classList.remove('hidden');
+    });
+    
+    document.getElementById('switch-to-login-from-forgot').addEventListener('click', () => {
+        forgotPasswordContainer.classList.add('hidden');
+        signupContainer.classList.add('hidden');
+        authContainer.classList.remove('hidden');
+    });
+    
+    // Forgot Password Form
+    document.getElementById('forgot-password-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const { sendPasswordResetEmail } = window.firebaseModules;
+        const email = document.getElementById('reset-email').value;
+        
+        try {
+            await sendPasswordResetEmail(auth, email);
+            showToast("Password reset email sent! Check your inbox.", "success");
+            document.getElementById('reset-email').value = '';
+            
+            // Switch back to login after 2 seconds
+            setTimeout(() => {
+                forgotPasswordContainer.classList.add('hidden');
+                authContainer.classList.remove('hidden');
+            }, 2000);
+        } catch (error) {
+            console.error("Password reset error:", error);
+            let errorMsg = "Failed to send reset email";
+            if (error.code === 'auth/user-not-found') {
+                errorMsg = "No account found with this email";
+            } else if (error.code === 'auth/invalid-email') {
+                errorMsg = "Invalid email address";
+            } else if (error.code === 'auth/too-many-requests') {
+                errorMsg = "Too many attempts. Please try again later";
+            }
+            showToast(errorMsg, "error");
+        }
+    });
+    
+    document.getElementById('login-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const { signInWithEmailAndPassword, setPersistence, browserLocalPersistence, browserSessionPersistence } = window.firebaseModules;
+        const email = document.getElementById('login-email').value;
+        const password = document.getElementById('login-password').value;
+        const rememberMe = document.getElementById('remember-me').checked;
+        
+        try {
+            // Set persistence based on "Remember Me" checkbox
+            const persistence = rememberMe ? browserLocalPersistence : browserSessionPersistence;
+            await setPersistence(auth, persistence);
+            
+            // Sign in after setting persistence
+            await signInWithEmailAndPassword(auth, email, password);
+            showToast("Login successful!", "success");
+        } catch (error) {
+            showToast(error.message, "error");
+        }
+    });
+    
+    document.getElementById('signup-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const { createUserWithEmailAndPassword, updateProfile, setPersistence, browserLocalPersistence } = window.firebaseModules;
+        const name = document.getElementById('signup-name').value;
+        const email = document.getElementById('signup-email').value;
+        const password = document.getElementById('signup-password').value;
+        
+        try {
+            // Set persistence to LOCAL for new users (default to remember)
+            await setPersistence(auth, browserLocalPersistence);
+            
+            const cred = await createUserWithEmailAndPassword(auth, email, password);
+            await updateProfile(cred.user, { displayName: name });
+            showToast("Account created!", "success");
+        } catch (error) {
+            showToast(error.message, "error");
+        }
+    });
+    
+    // Logout
+    document.getElementById('logout-btn').addEventListener('click', async () => {
+        const { signOut } = window.firebaseModules;
+        const userEmail = currentUser ? currentUser.email : 'Unknown';
+        addLog(`User logged out: ${userEmail}`, 'auth');
+        
+        // Stop all real-time listeners before logout
+        isAnalyticsPageActive = false;
+        stopSensorRealtimeListener();
+        stopPZEMRealtimeListener();
+        stopDeviceUsageRealtimeListener();
+        console.log('🛑 Stopped all real-time listeners for logout');
+        
+        await signOut(auth);
+        showToast("Logged out", "success");
+        
+        // Hide all auth screens
+        forgotPasswordContainer.classList.add('hidden');
+        signupContainer.classList.add('hidden');
+    });
+
+    // Feedback Form Handler
+    document.getElementById('feedback-form').addEventListener('submit', (e) => {
+        e.preventDefault();
+        
+        const name = document.getElementById('feedback-name').value;
+        const email = document.getElementById('feedback-email').value;
+        const subject = document.getElementById('feedback-subject').value;
+        const message = document.getElementById('feedback-message').value;
+        const sendToPiku = document.getElementById('send-to-piku').checked;
+        const sendToArnab = document.getElementById('send-to-arnab').checked;
+        
+        // Validate at least one recipient is selected
+        if (!sendToPiku && !sendToArnab) {
+            showToast("Please select at least one recipient", "error");
+            return;
+        }
+        
+        // Build email recipients
+        const recipients = [];
+        if (sendToPiku) recipients.push('pikumandal5233@gmail.com');
+        if (sendToArnab) recipients.push('arnabmandal123123@gmail.com');
+        
+        // Build email body
+        const emailBody = `Hello Team,
+
+I would like to share my feedback regarding the Smart Home Automation System.
+
+Name: ${name}
+Email: ${email}
+Subject: ${subject}
+
+Message:
+${message}
+
+---
+Sent via Smart Home Automation Feedback System
+Timestamp: ${new Date().toLocaleString()}`;
+        
+        // Build Gmail compose URL
+        const gmailURL = `https://mail.google.com/mail/?view=cm&fs=1&to=${recipients.join(',')}&su=${encodeURIComponent(`[Smart Home Feedback] ${subject}`)}&body=${encodeURIComponent(emailBody)}`;
+        
+        // Log activity
+        addLog(`Feedback submitted by ${name} (${subject})`, 'system');
+        
+        // Show success message
+        showToast("Redirecting to Gmail...", "success");
+        
+        // Open Gmail in new tab
+        setTimeout(() => {
+            window.open(gmailURL, '_blank');
+            
+            // Reset form
+            document.getElementById('feedback-form').reset();
+            document.getElementById('send-to-piku').checked = true;
+            document.getElementById('send-to-arnab').checked = true;
+            
+            showToast("Thank you for your feedback! 🌟", "success");
+        }, 500);
+    });
+    
+    // Drawer
+    document.getElementById('drawer-open').addEventListener('click', () => {
+        document.getElementById('drawer').classList.replace('drawer-closed', 'drawer-open');
+        document.getElementById('drawer-backdrop').classList.remove('hidden');
+    });
+    
+    const closeDrawer = () => {
+        document.getElementById('drawer').classList.replace('drawer-open', 'drawer-closed');
+        document.getElementById('drawer-backdrop').classList.add('hidden');
+    };
+    
+    document.getElementById('drawer-close').addEventListener('click', closeDrawer);
+    document.getElementById('drawer-backdrop').addEventListener('click', closeDrawer);
+    
+    // Accordion
+    document.querySelectorAll('.accordion-toggle').forEach(toggle => {
+        toggle.addEventListener('click', () => {
+            const content = document.getElementById(`accordion-${toggle.dataset.accordion}`);
+            const isOpen = content.style.maxHeight && content.style.maxHeight !== '0px';
+            
+            document.querySelectorAll('.accordion-content').forEach(c => c.style.maxHeight = '0px');
+            
+            if (!isOpen) {
+                content.style.maxHeight = content.scrollHeight + 'px';
+                toggle.querySelector('svg').classList.add('rotate-180');
+            } else {
+                toggle.querySelector('svg').classList.remove('rotate-180');
+            }
+        });
+    });
+    
+    // Navigation
+    document.querySelectorAll('.nav-tab').forEach(tab => {
+        tab.addEventListener('click', () => switchPage(tab.dataset.page));
+    });
+    
+    // Quick Actions
+    document.getElementById('turn-all-on').addEventListener('click', () => {
+        for (let i = 1; i <= NUM_LIGHTS; i++) {
+            publishMessage(`homeautomation/project/light/${i}/set`, "ON");
+        }
+        addLog("Turned ON all devices", 'device-control');
+    });
+    
+    document.getElementById('turn-all-off').addEventListener('click', () => {
+        for (let i = 1; i <= NUM_LIGHTS; i++) {
+            publishMessage(`homeautomation/project/light/${i}/set`, "OFF");
+        }
+        addLog("Turned OFF all devices", 'device-control');
+    });
+    
+    // Fire Alarm
+    document.getElementById('test-alarm-btn').addEventListener('click', () => {
+        publishMessage("homeautomation/project/alarm/flame", "CLEAR", true);
+        addLog("Test alarm triggered", 'alarm');
+    });
+    
+    document.getElementById('stop-alarm-btn').addEventListener('click', () => {
+        stopAlarm();
+        publishMessage("homeautomation/project/alarm/flame", "DETECTED", true);
+        addLog("Alarm stopped", 'alarm');
+    });
+    
+    // Voice Control
+    document.getElementById('voice-btn').addEventListener('click', () => {
+        if (!recognition) {
+            showToast("Voice control not supported in this browser", "error");
+            speak("Voice control is not supported in this browser");
+            return;
+        }
+        
+        try {
+            recognition.start();
+            addLog("Voice recognition started", 'voice-command');
+        } catch (error) {
+            console.error("Error starting voice recognition:", error);
+            if (error.message.includes('already started')) {
+                showToast("Already listening...", "info");
+            } else {
+                showToast("Failed to start voice recognition", "error");
+                speak("Failed to start voice recognition");
+            }
+        }
+    });
+    
+    // Logs
+    document.getElementById('log-search').addEventListener('input', renderLog);
+    document.getElementById('clear-logs-btn').addEventListener('click', () => {
+        logEntries = [];
+        renderLog();
+        showToast("Logs cleared", "success");
+    });
+    
+    document.getElementById('export-logs-btn').addEventListener('click', () => {
+        const text = logEntries.map(e => `[${e.time}] ${e.text}`).join('\n');
+        const blob = new Blob([text], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `logs-${new Date().toISOString()}.txt`;
+        a.click();
+        showToast("Logs exported", "success");
+    });
+    
+    // Fire Alarm History
+    document.getElementById('refresh-alarm-history-btn').addEventListener('click', () => {
+        loadAlarmHistory();
+        showToast("Alarm history refreshed", "success");
+    });
+    
+    // Auth State Listener - Initialize after DOM is ready
+    function initAuthListener() {
+        if (!window.firebaseModules || !auth) {
+            setTimeout(initAuthListener, 100);
+            return;
+        }
+        
+        const { onAuthStateChanged } = window.firebaseModules;
+        console.log("Setting up auth listener...");
+        
+        onAuthStateChanged(auth, (user) => {
+            console.log("Auth state changed:", user ? "Logged in" : "Logged out");
+            
+            if (user) {
+                currentUser = user;
+                console.log("User logged in:", user.email);
+                
+                // Hide auth screens
+                authContainer.classList.add('hidden');
+                signupContainer.classList.add('hidden');
+                forgotPasswordContainer.classList.add('hidden');
+                
+                // Show main app
+                mainApp.classList.remove('hidden');
+                
+                // Update UI
+                document.getElementById('greeting-text').textContent = `Welcome, ${user.displayName || user.email}!`;
+                document.getElementById('profile-display-name').textContent = user.displayName || "User";
+                document.getElementById('profile-email').textContent = user.email;
+                
+                // Log login event
+                addLog(`User logged in: ${user.email}`, 'auth');
+                
+                // Initialize app
+                renderDevices();
+                connectMqtt();
+                setTimeout(initCharts, 1000);
+                
+                // Initialize sensor monitoring
+                setTimeout(() => {
+                    startSensorListeners();
+                    initSensorCharts();
+                }, 1500);
+            } else {
+                console.log("User logged out");
+                currentUser = null;
+                
+                // Show auth screen
+                mainApp.classList.add('hidden');
+                signupContainer.classList.add('hidden');
+                forgotPasswordContainer.classList.add('hidden');
+                authContainer.classList.remove('hidden');
+                
+                // Reset to dashboard
+                switchPage('dashboard');
+            }
+        });
+    }
+    
+    // Start auth listener when Firebase is ready
+    window.addEventListener('firebaseReady', initAuthListener);
+    // Also try immediately in case Firebase is already ready
+    setTimeout(initAuthListener, 500);
+});
+
+</script>
+
+</body>
+</html>
