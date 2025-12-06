@@ -1543,8 +1543,11 @@ async function loadAppliances() {
         try {
             const snapshot = await get(appliancesRef);
             if (snapshot.exists()) {
-                appliances = Object.values(snapshot.val());
-                console.log("Loaded appliances from Firebase:", appliances);
+                const allAppliances = Object.values(snapshot.val());
+                const lights = allAppliances.filter(a => a.type === 'light');
+                const fans = allAppliances.filter(a => a.type === 'fan');
+                appliances = lights.concat(fans.slice(0, 2)); // Keep only the first 2 fans
+                console.log("Loaded and filtered appliances from Firebase:", appliances);
             } else {
                 // No appliances in DB, so set the default ones
                 const defaultAppliances = [
