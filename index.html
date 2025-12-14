@@ -21,7 +21,7 @@
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
         import { getFirestore, collection, addDoc, setDoc, doc, getDoc, getDocs, query, orderBy, limit, onSnapshot, deleteDoc, serverTimestamp, updateDoc, where } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
         import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut, sendPasswordResetEmail, updateProfile, updateEmail, updatePassword, setPersistence, browserLocalPersistence, browserSessionPersistence } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
-        import { getDatabase, ref as dbRef, onValue, get, push, set, query as dbQuery, orderByChild, startAt, endAt, limitToLast } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
+        import { getDatabase, ref as dbRef, onValue, get, push, set, remove, query as dbQuery, orderByChild, startAt, endAt, limitToLast } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
         import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js';
         
         window.firebaseModules = {
@@ -31,7 +31,7 @@
             setPersistence, browserLocalPersistence, browserSessionPersistence,
             collection, addDoc, setDoc, doc, getDoc, getDocs, query, orderBy, limit, onSnapshot, deleteDoc,
             serverTimestamp, updateDoc, where, ref, uploadBytes, getDownloadURL, deleteObject,
-            dbRef, onValue, get, push, set, dbQuery, orderByChild, startAt, endAt, limitToLast
+            dbRef, onValue, get, push, set, remove, dbQuery, orderByChild, startAt, endAt, limitToLast
         };
     </script>
     
@@ -63,8 +63,6 @@
             min-height: 100vh;
             /* Improve scroll performance and reduce flickering */
             -webkit-overflow-scrolling: touch;
-            transform: translateZ(0);
-            -webkit-transform: translateZ(0);
             will-change: scroll-position;
         }
 
@@ -134,6 +132,15 @@
             box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
         }
 
+        input[type="checkbox"]:checked {
+            background-color: #6366f1;
+            border-color: #6366f1;
+            background-image: url("data:image/svg+xml,%3csvg viewBox='0 0 16 16' fill='white' xmlns='http://www.w3.org/2000/svg'%3e%3cpath d='M12.207 4.793a1 1 0 010 1.414l-5 5a1 1 0 01-1.414 0l-2-2a1 1 0 011.414-1.414L6.5 9.086l4.293-4.293a1 1 0 011.414 0z'/%3e%3c/svg%3e");
+            background-size: 100% 100%;
+            background-position: 50%;
+            background-repeat: no-repeat;
+        }
+
         /* Mobile-specific input fixes */
         @media (max-width: 768px) {
             input[type="email"], input[type="password"], input[type="text"] {
@@ -171,13 +178,6 @@
                 appearance: none;
             }
             
-            /* Reduce animations on mobile for better performance */
-            * {
-                animation-duration: 0.01ms !important;
-                animation-iteration-count: 1 !important;
-                transition-duration: 0.01ms !important;
-            }
-            
             /* But keep essential transitions */
             .btn, .toggle-track, input, select, textarea {
                 transition-duration: 0.2s !important;
@@ -192,6 +192,10 @@
             /* Disable hover effects on mobile (they cause flickering) */
             .card:hover {
                 transform: none !important;
+            }
+
+            body {
+                -webkit-tap-highlight-color: transparent;
             }
         }
 
@@ -367,7 +371,6 @@
         /* Chart container */
         .chart-container {
             position: relative;
-            height: 250px;
             background: rgba(249, 250, 251, 0.8);
             border-radius: 1rem;
             padding: 1rem;
@@ -462,6 +465,7 @@
             animation: pulse-bg 1s infinite;
         }
     </style>
+    
 </head>
 <body class="bg-slate-50">
 
@@ -473,301 +477,72 @@
     <!-- Toast Container -->
     <div id="toast-container" class="fixed top-6 right-6 z-50 flex flex-col gap-2"></div>
 
-    <!-- Drawer Backdrop -->
-    <div id="drawer-backdrop" class="fixed inset-0 bg-black bg-opacity-50 z-40 hidden"></div>
-    
-    <!-- Drawer Menu -->
-    <aside id="drawer" class="fixed top-0 left-0 h-full w-80 bg-white shadow-2xl z-50 drawer drawer-closed flex flex-col">
-        <div class="flex items-center justify-between px-4 py-3 border-b border-gray-200">
-            <span class="text-base font-bold text-indigo-700">Menu</span>
-            <button id="drawer-close" class="text-gray-500 hover:text-indigo-600 text-xl">&times;</button>
-        </div>
-
-        <div class="flex-1 overflow-y-auto p-3 space-y-2">
-            <!-- Profile Section -->
-            <div class="accordion-item">
-                <button class="accordion-toggle" data-accordion="profile">
-                    <span>My Profile</span>
-                    <svg class="w-5 h-5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                    </svg>
-                </button>
-                <div class="accordion-content" id="accordion-profile">
-                    <div class="pt-3 pb-2">
-                        <div class="flex flex-col items-center mb-4">
-                            <img id="profile-photo" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Crect fill='%236366f1' width='100' height='100'/%3E%3Ctext x='50%25' y='50%25' font-size='40' fill='%23fff' text-anchor='middle' dy='.3em'%3E👤%3C/text%3E%3C/svg%3E" 
-                                 class="w-20 h-20 rounded-full border-4 border-indigo-500">
-                            <h3 id="profile-display-name" class="mt-2 text-lg font-bold text-indigo-700">Loading...</h3>
-                            <p id="profile-email" class="text-sm text-gray-600">Loading...</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- About Section -->
-            <div class="accordion-item">
-                <button class="accordion-toggle" data-accordion="about">
-                    <span>📖 About</span>
-                    <svg class="w-5 h-5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                    </svg>
-                </button>
-                <div class="accordion-content" id="accordion-about">
-                    <div class="pt-3 pb-2 text-sm text-gray-700 space-y-4">
-                        
-                        <div class="p-4 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl border border-indigo-100 shadow-sm">
-                            <h3 class="font-bold text-base text-indigo-700 mb-2">Smart Home Automation System</h3>
-                            <p class="text-gray-600 text-xs">A comprehensive IoT-based home automation solution that enables remote monitoring and control of electrical appliances, environmental sensors, and power consumption from anywhere in the world.</p>
-                        </div>
-                        
-                        <div class="p-4 bg-white rounded-xl border border-gray-200 shadow-sm">
-                            <p class="font-semibold text-gray-800 mb-3 flex items-center gap-2">
-                                <svg class="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                                Key Features
-                            </p>
-                            <ul class="grid grid-cols-2 gap-x-4 gap-y-2 text-xs text-gray-600">
-                                <li class="flex items-center gap-2"><svg class="w-3 h-3 text-green-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>Real-time Control</li>
-                                <li class="flex items-center gap-2"><svg class="w-3 h-3 text-green-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>Power Monitoring</li>
-                                <li class="flex items-center gap-2"><svg class="w-3 h-3 text-green-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>Sensor Readings</li>
-                                <li class="flex items-center gap-2"><svg class="w-3 h-3 text-green-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>Voice Control</li>
-                                <li class="flex items-center gap-2"><svg class="w-3 h-3 text-green-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>Analytics</li>
-                                <li class="flex items-center gap-2"><svg class="w-3 h-3 text-green-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>Authentication</li>
-                            </ul>
-                        </div>
-
-                        <div class="p-4 bg-white rounded-xl border border-gray-200 shadow-sm">
-                            <p class="font-semibold text-gray-800 mb-2 flex items-center gap-2">
-                        <div class="p-4 bg-white rounded-xl border border-gray-200 shadow-sm">
-                            <p class="font-semibold text-gray-800 mb-3 flex items-center gap-2">
-                                <svg class="w-5 h-5 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path></svg>
-                                Technology Stack
-                            </p>
-                            <div class="flex flex-wrap gap-2 text-xs">
-                                <span class="bg-gray-200 text-gray-700 px-2 py-1 rounded-full">ESP8266</span>
-                                <span class="bg-gray-200 text-gray-700 px-2 py-1 rounded-full">Arduino</span>
-                                <span class="bg-gray-200 text-gray-700 px-2 py-1 rounded-full">Firebase</span>
-                                <span class="bg-gray-200 text-gray-700 px-2 py-1 rounded-full">MQTT</span>
-                                <span class="bg-gray-200 text-gray-700 px-2 py-1 rounded-full">Tailwind CSS</span>
-                                <span class="bg-gray-200 text-gray-700 px-2 py-1 rounded-full">Chart.js</span>
-                            </div>
-                        </div>
-
-                        <div class="p-4 bg-white rounded-xl border border-gray-200 shadow-sm">
-                            <p class="font-semibold text-gray-800 mb-3 flex items-center gap-2">
-                                <svg class="w-5 h-5 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
-                                Power Monitoring
-                            </p>
-                            <ul class="grid grid-cols-2 gap-x-4 gap-y-2 text-xs text-gray-600">
-                                <li class="flex items-center gap-2"><svg class="w-3 h-3 text-yellow-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>Voltage</li>
-                                <li class="flex items-center gap-2"><svg class="w-3 h-3 text-yellow-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>Current</li>
-                                <li class="flex items-center gap-2"><svg class="w-3 h-3 text-yellow-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>Power</li>
-                                <li class="flex items-center gap-2"><svg class="w-3 h-3 text-yellow-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>Energy</li>
-                            </ul>
-                        </div>
-
-                        <div class="p-4 bg-white rounded-xl border border-gray-200 shadow-sm">
-                            <p class="font-semibold text-gray-800 mb-3 flex items-center gap-2">
-                                <svg class="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
-                                Security Features
-                            </p>
-                            <ul class="grid grid-cols-2 gap-x-4 gap-y-2 text-xs text-gray-600">
-                                <li class="flex items-center gap-2"><svg class="w-3 h-3 text-red-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>Authentication</li>
-                                <li class="flex items-center gap-2"><svg class="w-3 h-3 text-red-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>Password Reset</li>
-                                <li class="flex items-center gap-2"><svg class="w-3 h-3 text-red-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>Secure MQTT</li>
-                                <li class="flex items-center gap-2"><svg class="w-3 h-3 text-red-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>Activity Logging</li>
-                            </ul>
-                        </div>
-                        
-                        <div class="pt-2 border-t border-gray-200 mt-4">
-                            <p class="text-xs text-gray-500 italic text-center">Developed with ❤️ for modern smart homes</p>
-                            <p class="text-xs text-gray-500 text-center mt-1">Version 2.1 | November 2025</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Project Team Section -->
-            <div class="accordion-item">
-                <button class="accordion-toggle" data-accordion="team">
-                    <span>👥 Project Team</span>
-                    <svg class="w-5 h-5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                    </svg>
-                </button>
-                <div class="accordion-content" id="accordion-team">
-                    <div class="pt-3 pb-2 text-sm text-gray-700 space-y-4">
-                        <!-- Team Member 1: Piku -->
-                        <div class="flex items-center gap-3 p-3 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl border border-indigo-100">
-                            <div class="flex-shrink-0">
-                                <img src="./piku.jpg" alt="Piku Mandal" class="w-16 h-16 rounded-full object-cover border-2 border-indigo-300 shadow-md" onerror="this.onerror=null; this.src='data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%27100%27 height=%27100%27%3E%3Crect fill=%27%236366f1%27 width=%27100%27 height=%27100%27/%3E%3Ctext x=%2750%25%27 y=%2750%25%27 font-size=%2740%27 fill=%27%23fff%27 text-anchor=%27middle%27 dy=%27.3em%27%3EP%3C/text%3E%3C/svg%3E';">
-                            </div>
-                            <div class="flex-1">
-                                <h4 class="font-bold text-base text-indigo-700">Piku Mandal</h4>
-                                <p class="text-xs text-gray-600 mb-1">Lead Developer & Hardware Engineer</p>
-                                <p class="text-xs text-gray-500 mb-1">B.Tech, Electrical Engineering</p>
-                                <div class="flex items-center gap-2 text-xs">
-                                    <a href="mailto:pikumandal5233@gmail.com" class="text-indigo-600 hover:text-indigo-800 flex items-center gap-1">
-                                        <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                                            <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z"></path>
-                                            <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z"></path>
-                                        </svg>
-                                        Email
-                                    </a>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Team Member 2: Arnab -->
-                        <div class="flex items-center gap-3 p-3 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl border border-indigo-100">
-                            <div class="flex-shrink-0">
-                                <img src="./arnab.jpg" alt="Arnab Mandal" class="w-16 h-16 rounded-full object-cover border-2 border-indigo-300 shadow-md" onerror="this.onerror=null; this.src='data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%27100%27 height=%27100%27%3E%3Crect fill=%27%238b5cf6%27 width=%27100%27 height=%27100%27/%3E%3Ctext x=%2750%25%27 y=%2750%25%27 font-size=%2740%27 fill=%27%23fff%27 text-anchor=%27middle%27 dy=%27.3em%27%3EA%3C/text%3E%3C/svg%3E';">
-                            </div>
-                            <div class="flex-1">
-                                <h4 class="font-bold text-base text-indigo-700">Arnab Mandal</h4>
-                                <p class="text-xs text-gray-600 mb-1">Website and Hardware Designer</p>
-                                <p class="text-xs text-gray-500 mb-1">Diploma, Electrical Engineering</p>
-                                <div class="flex items-center gap-2 text-xs">
-                                    <a href="mailto:arnabmandal123123@gmail.com" class="text-indigo-600 hover:text-indigo-800 flex items-center gap-1">
-                                        <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                                            <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z"></path>
-                                            <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z"></path>
-                                        </svg>
-                                        Email
-                                    </a>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="pt-2 border-t border-gray-200">
-                            <p class="text-xs text-gray-500 italic text-center">Building the future of smart homes 🚀</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Feedback Section -->
-            <div class="accordion-item">
-                <button class="accordion-toggle" data-accordion="feedback">
-                    <span>💬 Feedback</span>
-                    <svg class="w-5 h-5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                    </svg>
-                </button>
-                <div class="accordion-content" id="accordion-feedback">
-                    <div class="pt-3 pb-2">
-                        <p class="text-sm text-gray-600 mb-3">We'd love to hear your thoughts! Share your feedback with us.</p>
-                        
-                        <form id="feedback-form" class="space-y-3">
-                            <div>
-                                <label class="block text-xs font-semibold mb-1 text-gray-700">Your Name</label>
-                                <input type="text" id="feedback-name" required placeholder="Enter your name" class="w-full text-sm">
-                            </div>
-                            
-                            <div>
-                                <label class="block text-xs font-semibold mb-1 text-gray-700">Your Email</label>
-                                <input type="email" id="feedback-email" required placeholder="your.email@example.com" class="w-full text-sm">
-                            </div>
-                            
-                            <div>
-                                <label class="block text-xs font-semibold mb-1 text-gray-700">Subject</label>
-                                <select id="feedback-subject" class="w-full text-sm">
-                                    <option value="General Feedback">General Feedback</option>
-                                    <option value="Bug Report">Bug Report</option>
-                                    <option value="Feature Request">Feature Request</option>
-                                    <option value="Technical Support">Technical Support</option>
-                                    <option value="Collaboration">Collaboration Inquiry</option>
-                                    <option value="Other">Other</option>
-                                </select>
-                            </div>
-                            
-                            <div>
-                                <label class="block text-xs font-semibold mb-1 text-gray-700">Message</label>
-                                <textarea id="feedback-message" rows="4" required placeholder="Share your thoughts, suggestions, or issues..." class="w-full text-sm resize-none"></textarea>
-                            </div>
-                            
-                            <div>
-                                <label class="block text-xs font-semibold mb-1 text-gray-700">Send To</label>
-                                <div class="flex gap-2">
-                                    <label class="flex items-center gap-1 text-xs">
-                                        <input type="checkbox" id="send-to-piku" checked class="w-3 h-3 text-indigo-600 rounded">
-                                        <span class="text-gray-700">Piku</span>
-                                    </label>
-                                    <label class="flex items-center gap-1 text-xs">
-                                        <input type="checkbox" id="send-to-arnab" checked class="w-3 h-3 text-purple-600 rounded">
-                                        <span class="text-gray-700">Arnab</span>
-                                    </label>
-                                </div>
-                            </div>
-                            
-                            <button type="submit" class="btn w-full text-sm py-2">
-                                <span class="flex items-center justify-center gap-2">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
-                                    </svg>
-                                    Send Feedback via Gmail
-                                </span>
-                            </button>
-                        </form>
-                        
-                        <div class="mt-3 pt-3 border-t border-gray-200">
-                            <p class="text-xs text-gray-500 text-center">Your feedback helps us improve! 🌟</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="p-4 border-t border-gray-200">
-            <button id="logout-btn" class="w-full btn">Logout</button>
-        </div>
-    </aside>
-
-    <!-- Menu Button -->
-    <button id="drawer-open" class="fixed top-4 left-4 z-30 bg-white rounded-full shadow-xl p-3 hover:bg-gray-50">
-        <svg class="w-6 h-6 text-indigo-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
-        </svg>
-    </button>
+    <!-- Drawer and Backdrop Removed -->
 
     <!-- Auth Container -->
-    <div id="auth-container" class="flex items-center justify-center min-h-screen p-4">
-        <div class="card w-full max-w-md p-8">
-            <h1 class="text-3xl font-bold text-center mb-6 text-indigo-700">Smart Home</h1>
-            
-            <!-- Login Form -->
-            <form id="login-form" autocomplete="on">
-                <div class="mb-4">
-                    <label class="block text-sm font-medium mb-2">Email</label>
-                    <input type="email" id="login-email" name="email" autocomplete="email" required placeholder="email@example.com" inputmode="email">
+        <div id="auth-container" class="flex items-center justify-center min-h-screen p-4">
+            <div class="card w-full max-w-md p-8">
+                <h1 class="text-3xl font-bold text-center mb-6 text-indigo-700">Smart Home</h1>
+                
+                <!-- Login Form -->
+                <form id="login-form" autocomplete="on">
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium mb-2">Email</label>
+                        <input type="email" id="login-email" name="email" autocomplete="email" required placeholder="email@example.com" inputmode="email">
+                    </div>
+                    <div class="mb-4 relative">
+                        <label class="block text-sm font-medium mb-2">Password</label>
+                        <input type="password" id="login-password" name="password" autocomplete="current-password" required placeholder="••••••••">
+                        <button type="button" id="toggle-password" class="absolute inset-y-0 right-0 top-7 px-3 flex items-center text-gray-500">
+                            <svg id="eye-open" class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                            </svg>
+                            <svg id="eye-closed" class="h-5 w-5 hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.542-7 .95-3.036 3.37-5.456 6.125-6.5M16.5 7.5c.325.325.625.675.9 1.05M17.5 12a5.5 5.5 0 01-1.013 3.487M21 4l-2.939 2.939" />
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 21l2.939-2.939" />
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.5 14.5c.325.325.675.625 1.05.9" />
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 12l2.5 2.5" />
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.5 9.5c-.325-.325-.625-.675-.9-1.05" />
+                            </svg>
+                        </button>
+                    </div>
+                    <div class="mb-6 flex items-center">
+                        <input type="checkbox" id="remember-me" class="w-4 h-4 text-indigo-600 bg-gray-100 border-gray-300 rounded focus:ring-indigo-500 focus:ring-2">
+                        <label for="remember-me" class="ml-2 text-sm text-gray-700">
+                            Remember me <span class="text-xs text-gray-500">(Stay logged in)</span>
+                        </label>
+                    </div>
+                    <button type="submit" class="btn w-full">Login</button>
+                </form>
+                
+                <div class="flex justify-between items-center mt-4 text-sm">
+                    <button id="forgot-password-btn" class="text-indigo-600 hover:text-indigo-800 font-semibold">
+                        Forgot Password?
+                    </button>
+                    <p class="text-gray-600">
+                        Don't have an account? <button id="switch-to-signup" class="text-indigo-600 font-semibold">Sign Up</button>
+                    </p>
                 </div>
-                <div class="mb-4">
-                    <label class="block text-sm font-medium mb-2">Password</label>
-                    <input type="password" id="login-password" name="password" autocomplete="current-password" required placeholder="••••••••">
-                </div>
-                <div class="mb-6 flex items-center">
-                    <input type="checkbox" id="remember-me" class="w-4 h-4 text-indigo-600 bg-gray-100 border-gray-300 rounded focus:ring-indigo-500 focus:ring-2">
-                    <label for="remember-me" class="ml-2 text-sm text-gray-700">
-                        Remember me <span class="text-xs text-gray-500">(Stay logged in)</span>
-                    </label>
-                </div>
-                <button type="submit" class="btn w-full">Login</button>
-            </form>
-            
-            <!-- Mobile-specific help text -->
-            <div id="mobile-help" class="mt-3 p-2 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-700 hidden">
-                📱 <strong>Mobile Tip:</strong> Uncheck "Remember me" for better mobile experience. You'll need to login again after closing your browser.
-            </div>
-            
-            <div class="flex justify-between items-center mt-4 text-sm">
-                <button id="forgot-password-btn" class="text-indigo-600 hover:text-indigo-800 font-semibold">
-                    Forgot Password?
-                </button>
-                <p class="text-gray-600">
-                    Don't have an account? <button id="switch-to-signup" class="text-indigo-600 font-semibold">Sign Up</button>
-                </p>
             </div>
         </div>
-    </div>
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const togglePassword = document.getElementById('toggle-password');
+        const password = document.getElementById('login-password');
+        const eyeOpen = document.getElementById('eye-open');
+        const eyeClosed = document.getElementById('eye-closed');
+    
+        togglePassword.addEventListener('click', function (e) {
+            // toggle the type attribute
+            const type = password.getAttribute('type') === 'password' ? 'text' : 'password';
+            password.setAttribute('type', type);
+            // toggle the eye / eye-slash icon
+            eyeOpen.classList.toggle('hidden');
+            eyeClosed.classList.toggle('hidden');
+        });
+    });
+    </script>
 
     <!-- Forgot Password Form (Hidden) -->
     <div id="forgot-password-container" class="hidden flex items-center justify-center min-h-screen p-4">
@@ -817,66 +592,195 @@
     </div>
 
     <!-- Main App -->
-    <main id="main-app" class="hidden w-full max-w-6xl mx-auto p-4 space-y-6">
+    <main id="main-app" class="hidden w-full max-w-6xl mx-auto p-4 space-y-6 pb-20">
+
         
-        <!-- Header -->
-        <div class="card p-6">
-            <div class="flex justify-between items-center">
-                <div>
-                    <h1 class="text-2xl font-bold text-indigo-700">Smart Home</h1>
-                    <p class="text-gray-600" id="greeting-text">Welcome back!</p>
-                </div>
-                <div class="flex items-center gap-4">
-                    <div class="text-right">
-                        <div class="text-xl font-bold" id="current-time">00:00:00</div>
-                        <div class="text-sm text-gray-600" id="current-date">Loading...</div>
+        <!-- Navigation Tabs -->
+        <div class="fixed bottom-0 left-0 right-0 z-30 bg-white shadow-[0_-1px_3px_0_rgba(0,0,0,0.1)] flex justify-around p-2">
+            <button class="nav-tab active" data-page="control">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+            </button>
+            <button class="nav-tab" data-page="monitor">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+            </button>
+            <button class="nav-tab" data-page="analytics">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                </svg>
+            </button>
+            <button class="nav-tab" data-page="menu">
+                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+                </svg>
+            </button>
+        </div>
+
+        <!-- Fire Alarm Page -->
+        <div id="page-fire-alarm" class="hidden space-y-6">
+            <div class="card p-6">
+                <h2 class="text-2xl font-bold text-gray-800">Fire Alarm</h2>
+            </div>
+            <!-- Fire Alarm Test -->
+            <div class="card p-6">
+                <div class="flex flex-col md:flex-row justify-between items-center gap-4">
+                    <div class="flex items-center gap-3">
+                        <span class="text-3xl">🔥</span>
+                        <h2 class="text-xl font-bold text-gray-800">Fire Alarm Control</h2>
                     </div>
-                    <div id="connection-status" class="flex items-center gap-4">
-                        <div id="mqtt-status" class="flex items-center gap-2">
-                            <svg class="w-3 h-3 text-red-500" viewBox="0 0 12 12" fill="currentColor"><circle cx="6" cy="6" r="6"/></svg>
-                            <span class="text-sm font-semibold text-red-500">MQTT Offline</span>
+                    <div class="flex flex-wrap justify-center gap-2">
+                        <button id="test-alarm-btn-page" class="btn bg-orange-500 hover:bg-orange-600 text-sm">Test Alarm</button>
+                        <button id="stop-alarm-btn-page" class="btn bg-gray-400 text-sm" disabled>Stop Alarm</button>
+                    </div>
+                </div>
+                <div id="fire-alarm-appliances-off" class="hidden mt-4 p-4 bg-red-100 border border-red-200 rounded-lg text-sm text-red-700">
+                    <p><strong>All appliances have been turned off as a safety precaution.</strong></p>
+                </div>
+            </div>
+            <!-- How it Works Accordion -->
+            <div class="accordion-item">
+                <button class="accordion-toggle" data-accordion="fire-alarm-explanation">
+                    <span>How Fire Alarm Safety Works</span>
+                    <svg class="w-5 h-5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                    </svg>
+                </button>
+                <div class="accordion-content" id="accordion-fire-alarm-explanation">
+                    <div class="pt-3 pb-2 text-sm text-gray-700 space-y-4 p-4">
+                        <p>When a fire is detected by the flame sensor, the system immediately triggers the alarm and enters a safety mode.</p>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div class="flex items-start space-x-3">
+                                <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                                <div>
+                                    <h4 class="font-semibold">Immediate Shutdown</h4>
+                                    <p class="text-xs">All connected appliances, including lights and fans, are automatically turned off to reduce the risk of electrical fires.</p>
+                                </div>
+                            </div>
+                            <div class="flex items-start space-x-3">
+                                <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.636 5.636a9 9 0 0112.728 0m-12.728 0a9 9 0 000 12.728m2.828-9.9a5 5 0 000 7.072"></path></svg>
+                                <div>
+                                    <h4 class="font-semibold">Visual & Audible Alerts</h4>
+                                    <p class="text-xs">A loud alarm will sound and the web interface will display a prominent warning banner.</p>
+                                </div>
+                            </div>
                         </div>
-                        <div id="esp-status" class="flex items-center gap-2">
-                            <svg id="esp-status-icon" class="w-3 h-3 text-red-500" viewBox="0 0 12 12" fill="currentColor"><circle cx="6" cy="6" r="6"/></svg>
-                            <span class="text-sm font-semibold text-red-500">ESP Offline</span>
-                        </div>
+                        <p class="text-xs text-center pt-2">The system will remain in this safety mode until the alarm is manually stopped.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Fire Alarm History -->
+            <div class="card p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-bold">🔥 Fire Alarm History</h2>
+                    <button id="refresh-alarm-history-btn-page" class="btn text-sm">
+                        <i class="fas fa-sync-alt"></i> Refresh
+                    </button>
+                </div>
+                
+                <div class="chart-container mb-6" style="height: 250px;">
+                    <h3 class="text-sm font-semibold mb-2 text-center">Weekly Alarm Summary</h3>
+                    <canvas id="fireAlarmChart"></canvas>
+                </div>
+
+                <div id="alarm-history-container-page" class="space-y-3" style="max-height: 300px; overflow-y: auto;">
+                    <div class="text-center text-gray-500 py-8">
+                        <i class="fas fa-spinner fa-spin text-2xl mb-2"></i>
+                        <p>Loading alarm history...</p>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Navigation Tabs -->
-        <div class="flex gap-2 bg-white rounded-xl p-2 shadow">
-            <button class="nav-tab active" data-page="dashboard">
-                <svg class="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
-                </svg>
-                Dashboard
-            </button>
-            <button class="nav-tab" data-page="analytics">
-                <svg class="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
-                </svg>
-                Analytics
-            </button>
-            <button class="nav-tab" data-page="logs">
-                <svg class="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-                </svg>
-                Logs
-            </button>
-            <button class="nav-tab" data-page="faults">
-                <svg class="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
-                </svg>
-                Faults
-            </button>
+        <!-- Control Page -->
+        <div id="page-control" class="space-y-6">
+            <!-- Control Section -->
+            <div class="card p-6">
+                <div class="flex items-center justify-between mb-4">
+    <h2 class="text-2xl font-bold text-gray-800">Control</h2>
+    <button id="reconnect-btn" class="btn btn-sm text-xs">Refresh</button>
+</div>
+<div class="space-y-6">
+    <!-- Dashboard Overview -->
+    <div class="card p-6">
+        <h2 class="text-xl font-bold text-gray-800 mb-4">Dashboard Overview</h2>
+        <div class="grid grid-cols-2 lg:grid-cols-3 gap-4">
+            <div id="mqtt-status" class="bg-gradient-to-br from-gray-50 to-gray-100 p-4 rounded-xl flex items-center gap-2 text-xs font-semibold text-red-500">
+                <svg class="w-3 h-3" viewBox="0 0 12 12" fill="currentColor"><circle cx="6" cy="6" r="6"/></svg>
+                <span>MQTT</span>
+            </div>
+            <div id="esp-status" class="bg-gradient-to-br from-gray-50 to-gray-100 p-4 rounded-xl flex items-center gap-2 text-xs font-semibold text-red-500">
+                <svg id="esp-status-icon" class="w-3 h-3" viewBox="0 0 12 12" fill="currentColor"><circle cx="6" cy="6" r="6"/></svg>
+                <span>ESP</span>
+            </div>
+            <div class="bg-gradient-to-br from-blue-50 to-blue-100 p-4 rounded-xl">
+                <p class="text-sm text-gray-600">Total Devices</p>
+                <p id="dashboard-total-lights" class="text-2xl font-bold text-blue-600">4</p>
+            </div>
+            <div class="bg-gradient-to-br from-green-50 to-green-100 p-4 rounded-xl">
+                <p class="text-sm text-gray-600">Devices ON</p>
+                <p id="dashboard-on-count" class="text-2xl font-bold text-green-600">0</p>
+            </div>
+            <div class="bg-gradient-to-br from-red-50 to-red-100 p-4 rounded-xl">
+                <p class="text-sm text-gray-600">Devices OFF</p>
+                <p id="dashboard-off-count" class="text-2xl font-bold text-red-600">4</p>
+            </div>
+            <div class="bg-gradient-to-br from-purple-50 to-purple-100 p-4 rounded-xl">
+                <p class="text-sm text-gray-600">Status</p>
+                <p id="dashboard-timer-status" class="text-sm font-semibold text-gray-700 mt-2">No Timer</p>
+            </div>
+        </div>
+    </div>
+
+                    <!-- Voice Control -->
+                    <div class="card p-6 bg-gradient-to-br from-indigo-50 to-purple-50">
+                        <div class="flex items-center mb-4">
+                            <svg class="w-8 h-8 text-indigo-600 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path>
+                            </svg>
+                            <h2 class="text-xl font-bold text-indigo-700">Voice Control</h2>
+                        </div>
+                        <button id="voice-btn" class="btn mb-2 w-full">🎤 Start Listening</button>
+                        <p id="voice-status" class="text-sm text-indigo-600 min-h-[20px] mb-3"></p>
+                        
+                        <!-- Voice Commands Help -->
+                        <details class="text-xs text-gray-600 mt-3">
+                            <summary class="cursor-pointer hover:text-indigo-600 font-semibold">📋 Available Commands</summary>
+                            <div class="mt-2 space-y-1 pl-4 border-l-2 border-indigo-200">
+                                <p><strong>Lights:</strong></p>
+                                <p>• "Turn on all lights" / "Turn off all lights"</p>
+                                <p>• "Turn on light 1" (or 2, 3, 4)</p>
+                                <p>• "Turn off light 2" (or 1, 3, 4)</p>
+                                <p class="mt-2"><strong>Fans:</strong></p>
+                                <p>• "Turn on fan" / "Turn off fan"</p>
+                                <p>• "Turn on fan 1" (or 2)</p>
+                                <p>• "Set fan speed to 50 percent"</p>
+                                <p>• "Set fan 1 speed to 75 percent"</p>
+                                <p>• "Fan low" / "Fan medium" / "Fan high"</p>
+                                <p>• "Fan 2 low" / "Fan 1 high"</p>
+                                <p class="mt-2"><strong>Sensors:</strong></p>
+                                <p>• "What is the temperature?"</p>
+                                <p>• "Humidity" (asks for current humidity)</p>
+                                <p class="mt-2"><strong>Alarm:</strong></p>
+                                <p>• "Stop alarm" (stops fire alarm)</p>
+                            </div>
+                        </details>
+                    </div>
+
+                    <!-- Quick Actions -->
+                    <div class="flex gap-4">
+                        <button id="turn-all-on" class="btn flex-1">Turn All ON</button>
+                        <button id="turn-all-off" class="btn bg-gray-600 hover:bg-gray-700 flex-1">Turn All OFF</button>
+                    </div>
+
+                    <!-- Device Cards -->
+                    <div id="light-card-container" class="grid grid-cols-1 md:grid-cols-1 gap-6"></div>
+                </div>
+            </div>
         </div>
 
-        <!-- Dashboard Page -->
-        <div id="page-dashboard" class="space-y-6">
-            
-            <!-- Gas Alarm Banner -->
+        <!-- Monitor Page -->
+        <div id="page-monitor" class="hidden space-y-6">
+             <!-- Gas Alarm Banner -->
             <div id="gas-alarm-banner" class="hidden bg-red-600 text-white p-6 rounded-2xl shadow-xl">
                 <div class="flex items-center justify-between">
                     <div>
@@ -894,203 +798,138 @@
                 </div>
             </div>
 
-            <!-- Real-time Sensor Cards -->
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                
-                <!-- Temperature Card -->
-                <div class="sensor-card">
-                    <div class="sensor-icon text-red-500">🌡️</div>
-                    <h3 class="text-lg font-semibold text-gray-700 mb-2">Temperature</h3>
-                    <div class="sensor-value-big" id="sensor-temperature">--°C</div>
-                    <div class="text-sm text-gray-600 mt-2">
-                        Room Temperature
-                        <span id="temp-trend" class="trend-indicator"></span>
+            <!-- Monitor Section -->
+            <div class="card p-6">
+                <h2 class="text-2xl font-bold text-gray-800 mb-4">Monitor</h2>
+                <div class="space-y-6">
+                    <!-- Real-time Sensor Cards -->
+                    <div id="sensor-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
+                        
+                        <!-- Temperature Card -->
+                        <div class="sensor-card">
+                            <div class="sensor-icon text-red-500">🌡️</div>
+                            <h3 class="text-lg font-semibold text-gray-700 mb-2">Temperature</h3>
+                            <div class="sensor-value-big" id="sensor-temperature">--°C</div>
+                            <div class="text-sm text-gray-600 mt-2">
+                                Room Temperature
+                                <span id="temp-trend" class="trend-indicator"></span>
+                            </div>
+                            <div class="text-xs text-gray-500 mt-2" id="temp-update">Last update: --</div>
+                        </div>
+
+                        <!-- Humidity Card -->
+                        <div class="sensor-card">
+                            <div class="sensor-icon text-blue-500">💧</div>
+                            <h3 class="text-lg font-semibold text-gray-700 mb-2">Humidity</h3>
+                            <div class="sensor-value-big" id="sensor-humidity">--%</div>
+                            <div class="text-sm text-gray-600 mt-2">
+                                Relative Humidity
+                                <span id="humidity-trend" class="trend-indicator"></span>
+                            </div>
+                            <div class="text-xs text-gray-500 mt-2" id="humidity-update">Last update: --</div>
+                        </div>
+
+                        <!-- Gas Level Card -->
+                        <div class="sensor-card" id="gas-level-card">
+                            <div class="sensor-icon text-orange-500">💨</div>
+                            <h3 class="text-lg font-semibold text-gray-700 mb-2">Air Quality</h3>
+                            <div class="sensor-value-big" id="sensor-gas">--%</div>
+                            <div class="text-sm text-gray-600 mt-2">
+                                Gas Level <span id="gas-raw" class="text-xs">(0/1024)</span>
+                            </div>
+                            <div class="text-xs text-gray-500 mt-2" id="gas-update">Last update: --</div>
+                        </div>
+
+                        <!-- Motion Sensor Card -->
+                        <div class="sensor-card">
+                            <div class="sensor-icon" id="motion-icon">👤</div>
+                            <h3 class="text-lg font-semibold text-gray-700 mb-2">Motion Sensor</h3>
+                            <div class="text-2xl font-bold mt-4" id="sensor-motion" style="color: #10b981;">No Motion</div>
+                            <div class="text-sm text-gray-600 mt-2">PIR HC-SR501</div>
+                            <div class="text-xs text-gray-500 mt-2" id="motion-update">Last update: --</div>
+                        </div>
                     </div>
-                    <div class="text-xs text-gray-500 mt-2" id="temp-update">Last update: --</div>
-                </div>
 
-                <!-- Humidity Card -->
-                <div class="sensor-card">
-                    <div class="sensor-icon text-blue-500">💧</div>
-                    <h3 class="text-lg font-semibold text-gray-700 mb-2">Humidity</h3>
-                    <div class="sensor-value-big" id="sensor-humidity">--%</div>
-                    <div class="text-sm text-gray-600 mt-2">
-                        Relative Humidity
-                        <span id="humidity-trend" class="trend-indicator"></span>
-                    </div>
-                    <div class="text-xs text-gray-500 mt-2" id="humidity-update">Last update: --</div>
-                </div>
-
-                <!-- Gas Level Card -->
-                <div class="sensor-card" id="gas-level-card">
-                    <div class="sensor-icon text-orange-500">💨</div>
-                    <h3 class="text-lg font-semibold text-gray-700 mb-2">Air Quality</h3>
-                    <div class="sensor-value-big" id="sensor-gas">--%</div>
-                    <div class="text-sm text-gray-600 mt-2">
-                        Gas Level <span id="gas-raw" class="text-xs">(0/1024)</span>
-                    </div>
-                    <div class="text-xs text-gray-500 mt-2" id="gas-update">Last update: --</div>
-                </div>
-
-                <!-- Motion Sensor Card -->
-                <div class="sensor-card">
-                    <div class="sensor-icon" id="motion-icon">👤</div>
-                    <h3 class="text-lg font-semibold text-gray-700 mb-2">Motion Sensor</h3>
-                    <div class="text-2xl font-bold mt-4" id="sensor-motion" style="color: #10b981;">No Motion</div>
-                    <div class="text-sm text-gray-600 mt-2">PIR HC-SR501</div>
-                    <div class="text-xs text-gray-500 mt-2" id="motion-update">Last update: --</div>
-                </div>
-            </div>
-
-            <!-- Power Monitor Section (PZEM-004T) -->
-            <div class="card p-6 bg-gradient-to-br from-yellow-50 to-orange-50 mt-6">
-                <div class="flex items-center justify-between mb-4">
-                    <div class="flex items-center gap-3">
-                        <span class="text-3xl">⚡</span>
-                        <div>
-                            <h2 class="text-xl font-bold text-gray-800">AC Power Monitor (PZEM-004T)</h2>
-                            <div class="flex items-center gap-2 mt-1">
-                                <div id="pzem-status" class="w-3 h-3 rounded-full bg-gray-400"></div>
-                                <span id="pzem-status-text" class="text-sm text-gray-600 font-semibold">Connecting...</span>
+                    <!-- Power Monitor Section (PZEM-004T) -->
+                    <div class="card p-6 bg-gradient-to-br from-yellow-50 to-orange-50 mt-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="flex items-center gap-3">
+                                <span class="text-3xl">⚡</span>
+                                <div>
+                                    <h2 class="text-xl font-bold text-gray-800">AC Power Monitor (PZEM-004T)</h2>
+                                    <div class="flex items-center gap-2 mt-1">
+                                        <div id="pzem-status" class="w-3 h-3 rounded-full bg-gray-400"></div>
+                                        <span id="pzem-status-text" class="text-sm text-gray-600 font-semibold">Connecting...</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-2 bg-white px-3 py-2 rounded-lg shadow-sm">
+                                <label class="text-sm text-gray-600">Price/kWh:</label>
+                                <input type="number" id="price-per-kwh" value="6.5" step="0.5" min="0" max="100"
+                                       class="w-16 px-2 py-1 text-sm border border-gray-300 rounded text-center font-semibold"
+                                       onchange="calculateEnergyCost()">
+                                <span class="text-sm text-gray-600">₹</span>
                             </div>
                         </div>
-                    </div>
-                    <div class="flex items-center gap-2 bg-white px-3 py-2 rounded-lg shadow-sm">
-                        <label class="text-sm text-gray-600">Price/kWh:</label>
-                        <input type="number" id="price-per-kwh" value="6.5" step="0.5" min="0" max="100"
-                               class="w-16 px-2 py-1 text-sm border border-gray-300 rounded text-center font-semibold"
-                               onchange="calculateEnergyCost()">
-                        <span class="text-sm text-gray-600">₹</span>
-                    </div>
-                </div>
-                <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
-                    <div class="bg-white p-4 rounded-xl shadow-sm">
-                        <p class="text-sm text-gray-600">Voltage</p>
-                        <p id="pzem-voltage" class="text-2xl font-bold text-yellow-600">-- V</p>
-                    </div>
-                    <div class="bg-white p-4 rounded-xl shadow-sm">
-                        <p class="text-sm text-gray-600">Current</p>
-                        <p id="pzem-current" class="text-2xl font-bold text-blue-600">-- A</p>
-                    </div>
-                    <div class="bg-white p-4 rounded-xl shadow-sm">
-                        <p class="text-sm text-gray-600">Power</p>
-                        <p id="pzem-power" class="text-2xl font-bold text-green-600">-- W</p>
-                    </div>
-                    <div class="bg-white p-4 rounded-xl shadow-sm">
-                        <p class="text-sm text-gray-600">Energy</p>
-                        <p id="pzem-energy" class="text-2xl font-bold text-purple-600">-- kWh</p>
-                    </div>
-                    <div class="bg-white p-4 rounded-xl shadow-sm">
-                        <p class="text-sm text-gray-600">Frequency</p>
-                        <p id="pzem-frequency" class="text-2xl font-bold text-indigo-600">-- Hz</p>
-                    </div>
-                    <div class="bg-white p-4 rounded-xl shadow-sm">
-                        <p class="text-sm text-gray-600">Power Factor</p>
-                        <p id="pzem-pf" class="text-2xl font-bold text-red-600">--</p>
-                    </div>
-                </div>
-                
-                <!-- Energy Cost Display -->
-                <div class="mt-4 bg-white rounded-xl p-4 shadow-sm">
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
-                        <div class="border-r border-gray-200 last:border-r-0">
-                            <p class="text-xs text-gray-600 mb-1">Total Cost</p>
-                            <p id="total-energy-cost" class="text-2xl font-bold text-orange-600">₹ 0.00</p>
-                            <p class="text-xs text-gray-500 mt-1">Based on consumed energy</p>
+                        <div id="power-monitor-grid" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div class="bg-white p-4 rounded-xl shadow-sm">
+                                <p class="text-sm text-gray-600">Voltage</p>
+                                <p id="pzem-voltage" class="text-2xl font-bold text-yellow-600">-- V</p>
+                            </div>
+                            <div class="bg-white p-4 rounded-xl shadow-sm">
+                                <p class="text-sm text-gray-600">Current</p>
+                                <p id="pzem-current" class="text-2xl font-bold text-blue-600">-- A</p>
+                            </div>
+                            <div class="bg-white p-4 rounded-xl shadow-sm">
+                                <p class="text-sm text-gray-600">Power</p>
+                                <p id="pzem-power" class="text-2xl font-bold text-green-600">-- W</p>
+                            </div>
+                            <div class="bg-white p-4 rounded-xl shadow-sm">
+                                <p class="text-sm text-gray-600">Energy</p>
+                                <p id="pzem-energy" class="text-2xl font-bold text-purple-600">-- kWh</p>
+                            </div>
+                            <div class="bg-white p-4 rounded-xl shadow-sm">
+                                <p class="text-sm text-gray-600">Frequency</p>
+                                <p id="pzem-frequency" class="text-2xl font-bold text-indigo-600">-- Hz</p>
+                            </div>
+                            <div class="bg-white p-4 rounded-xl shadow-sm">
+                                <p class="text-sm text-gray-600">Power Factor</p>
+                                <p id="pzem-pf" class="text-2xl font-bold text-red-600">--</p>
+                            </div>
                         </div>
-                        <div class="border-r border-gray-200 last:border-r-0">
-                            <p class="text-xs text-gray-600 mb-1">Estimated Daily Cost</p>
-                            <p id="daily-cost-estimate" class="text-2xl font-bold text-blue-600">₹ 0.00</p>
-                            <p class="text-xs text-gray-500 mt-1">At current power</p>
+                        
+                        <!-- Energy Cost Display -->
+                        <div class="mt-4 bg-white rounded-xl p-4 shadow-sm">
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
+                                <div class="border-r border-gray-200 last:border-r-0">
+                                    <p class="text-xs text-gray-600 mb-1">Total Cost</p>
+                                    <p id="total-energy-cost" class="text-2xl font-bold text-orange-600">₹ 0.00</p>
+                                    <p class="text-xs text-gray-500 mt-1">Based on consumed energy</p>
+                                </div>
+                                <div class="border-r border-gray-200 last:border-r-0">
+                                    <p class="text-xs text-gray-600 mb-1">Estimated Daily Cost</p>
+                                    <p id="daily-cost-estimate" class="text-2xl font-bold text-blue-600">₹ 0.00</p>
+                                    <p class="text-xs text-gray-500 mt-1">At current power</p>
+                                </div>
+                                <div>
+                                    <p class="text-xs text-gray-600 mb-1">Estimated Monthly Cost</p>
+                                    <p id="monthly-cost-estimate" class="text-2xl font-bold text-purple-600">₹ 0.00</p>
+                                    <p class="text-xs text-gray-500 mt-1">At current power</p>
+                                </div>
+                            </div>
                         </div>
-                        <div>
-                            <p class="text-xs text-gray-600 mb-1">Estimated Monthly Cost</p>
-                            <p id="monthly-cost-estimate" class="text-2xl font-bold text-purple-600">₹ 0.00</p>
-                            <p class="text-xs text-gray-500 mt-1">At current power</p>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="text-xs text-gray-500 mt-4 text-center" id="pzem-update">Last update: --</div>
-            </div>
-            
-            <!-- Dashboard Overview -->
-            <div class="card p-6">
-                <div class="flex justify-between items-center mb-4">
-                    <h2 class="text-xl font-bold text-gray-800">Dashboard Overview</h2>
-                    <div class="flex gap-2">
-                        <button id="test-alarm-btn" class="btn bg-orange-500 hover:bg-orange-600 text-sm">Test Alarm</button>
-                        <button id="stop-alarm-btn" class="btn bg-gray-400 text-sm" disabled>Stop Alarm</button>
-                    </div>
-                </div>
-                <div class="grid grid-cols-4 gap-4">
-                    <div class="bg-gradient-to-br from-blue-50 to-blue-100 p-4 rounded-xl">
-                        <p class="text-sm text-gray-600">Total Devices</p>
-                        <p id="dashboard-total-lights" class="text-3xl font-bold text-blue-600">4</p>
-                    </div>
-                    <div class="bg-gradient-to-br from-green-50 to-green-100 p-4 rounded-xl">
-                        <p class="text-sm text-gray-600">Devices ON</p>
-                        <p id="dashboard-on-count" class="text-3xl font-bold text-green-600">0</p>
-                    </div>
-                    <div class="bg-gradient-to-br from-red-50 to-red-100 p-4 rounded-xl">
-                        <p class="text-sm text-gray-600">Devices OFF</p>
-                        <p id="dashboard-off-count" class="text-3xl font-bold text-red-600">4</p>
-                    </div>
-                    <div class="bg-gradient-to-br from-purple-50 to-purple-100 p-4 rounded-xl">
-                        <p class="text-sm text-gray-600">Status</p>
-                        <p id="dashboard-timer-status" class="text-sm font-semibold text-gray-700 mt-2">No Timer</p>
+                        
+                        <div class="text-xs text-gray-500 mt-4 text-center" id="pzem-update">Last update: --</div>
                     </div>
                 </div>
             </div>
-
-            <!-- Voice Control -->
-            <div class="card p-6 bg-gradient-to-br from-indigo-50 to-purple-50">
-                <div class="flex items-center mb-4">
-                    <svg class="w-8 h-8 text-indigo-600 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path>
-                    </svg>
-                    <h2 class="text-xl font-bold text-indigo-700">Voice Control</h2>
-                </div>
-                <button id="voice-btn" class="btn mb-2 w-full">🎤 Start Listening</button>
-                <p id="voice-status" class="text-sm text-indigo-600 min-h-[20px] mb-3"></p>
-                
-                <!-- Voice Commands Help -->
-                <details class="text-xs text-gray-600 mt-3">
-                    <summary class="cursor-pointer hover:text-indigo-600 font-semibold">📋 Available Commands</summary>
-                    <div class="mt-2 space-y-1 pl-4 border-l-2 border-indigo-200">
-                        <p><strong>Lights:</strong></p>
-                        <p>• "Turn on all lights" / "Turn off all lights"</p>
-                        <p>• "Turn on light 1" (or 2, 3, 4)</p>
-                        <p>• "Turn off light 2" (or 1, 3, 4)</p>
-                        <p class="mt-2"><strong>Fans:</strong></p>
-                        <p>• "Turn on fan" / "Turn off fan"</p>
-                        <p>• "Turn on fan 1" (or 2)</p>
-                        <p>• "Set fan speed to 50 percent"</p>
-                        <p>• "Set fan 1 speed to 75 percent"</p>
-                        <p>• "Fan low" / "Fan medium" / "Fan high"</p>
-                        <p>• "Fan 2 low" / "Fan 1 high"</p>
-                        <p class="mt-2"><strong>Sensors:</strong></p>
-                        <p>• "What is the temperature?"</p>
-                        <p>• "Humidity" (asks for current humidity)</p>
-                        <p class="mt-2"><strong>Alarm:</strong></p>
-                        <p>• "Stop alarm" (stops fire alarm)</p>
-                    </div>
-                </details>
-            </div>
-
-            <!-- Quick Actions -->
-            <div class="flex gap-4">
-                <button id="turn-all-on" class="btn flex-1">Turn All ON</button>
-                <button id="turn-all-off" class="btn bg-gray-600 hover:bg-gray-700 flex-1">Turn All OFF</button>
-            </div>
-
-            <!-- Device Cards -->
-            <div id="light-card-container" class="grid grid-cols-1 md:grid-cols-2 gap-6"></div>
-
         </div>
 
         <!-- Analytics Page -->
         <div id="page-analytics" class="hidden space-y-6">
+            <div class="card p-6">
+                <h2 class="text-2xl font-bold text-gray-800">Analytics</h2>
+            </div>
             
             <!-- Real-time Status Indicator -->
             <div class="card p-4 bg-gradient-to-r from-green-50 to-emerald-50 border-l-4 border-green-500">
@@ -1105,9 +944,9 @@
             
             <!-- Sensor Historical Data -->
             <div class="card p-6">
-                <div class="flex justify-between items-center mb-4">
+                <div class="flex flex-wrap justify-between items-center mb-4">
                     <h2 class="text-xl font-bold">📊 Sensor History</h2>
-                    <div class="flex gap-2">
+                    <div class="flex flex-wrap gap-2">
                         <button class="time-range-btn px-4 py-2 rounded-lg bg-indigo-600 text-white" data-range="1" onclick="changeSensorTimeRange(1)">1H</button>
                         <button class="time-range-btn px-4 py-2 rounded-lg bg-gray-200" data-range="6" onclick="changeSensorTimeRange(6)">6H</button>
                         <button class="time-range-btn px-4 py-2 rounded-lg bg-gray-200" data-range="24" onclick="changeSensorTimeRange(24)">24H</button>
@@ -1133,9 +972,9 @@
 
             <!-- PZEM Power Monitor Analytics -->
             <div class="card p-6">
-                <div class="flex justify-between items-center mb-4">
+                <div class="flex flex-wrap justify-between items-center mb-4">
                     <h2 class="text-xl font-bold">⚡ Power Monitor Analytics (PZEM-004T)</h2>
-                    <div class="flex gap-2">
+                    <div class="flex flex-wrap gap-2">
                         <button class="pzem-time-range-btn px-4 py-2 rounded-lg bg-indigo-600 text-white" data-range="1" onclick="changePZEMTimeRange(1)">1H</button>
                         <button class="pzem-time-range-btn px-4 py-2 rounded-lg bg-gray-200" data-range="6" onclick="changePZEMTimeRange(6)">6H</button>
                         <button class="pzem-time-range-btn px-4 py-2 rounded-lg bg-gray-200" data-range="24" onclick="changePZEMTimeRange(24)">24H</button>
@@ -1166,7 +1005,7 @@
             </div>
 
             <!-- PZEM Statistics -->
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                 <div class="card p-6">
                     <h3 class="text-sm font-semibold text-gray-600 mb-2">Peak Power</h3>
                     <div class="text-center">
@@ -1253,9 +1092,9 @@
                 
                 <!-- Device Timeline Charts -->
                 <div class="mb-6">
-                    <div class="flex justify-between items-center mb-4">
+                    <div class="flex flex-wrap justify-between items-center mb-4">
                         <h3 class="text-lg font-semibold">Device Activity Timeline</h3>
-                        <div class="flex gap-2">
+                        <div class="flex flex-wrap gap-2">
                             <button class="device-time-btn px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300 transition" data-range="1" onclick="changeDeviceTimeRange(1)">1H</button>
                             <button class="device-time-btn px-4 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition" data-range="6" onclick="changeDeviceTimeRange(6)">6H</button>
                             <button class="device-time-btn px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300 transition" data-range="24" onclick="changeDeviceTimeRange(24)">24H</button>
@@ -1297,7 +1136,7 @@
         <div id="page-logs" class="hidden space-y-6">
             <div class="card p-6">
                 <div class="flex justify-between items-center mb-4">
-                    <h2 class="text-xl font-bold">Activity Logs</h2>
+                    <h2 class="text-2xl font-bold text-gray-800">Logs</h2>
                     <div class="flex gap-2">
                         <button id="clear-logs-btn" class="btn bg-red-500 hover:bg-red-600 text-sm">Clear</button>
                         <button id="export-logs-btn" class="btn text-sm">Export</button>
@@ -1308,29 +1147,16 @@
                     <input id="log-search" type="text" placeholder="Search logs..." class="w-full">
                 </div>
                 
-                <div id="log-container" class="h-96 bg-gray-50 rounded-lg p-4 overflow-y-auto font-mono text-sm space-y-1"></div>
-            </div>
-
-            <!-- Fire Alarm History -->
-            <div class="card p-6">
-                <div class="flex justify-between items-center mb-4">
-                    <h2 class="text-xl font-bold">🔥 Fire Alarm History</h2>
-                    <button id="refresh-alarm-history-btn" class="btn text-sm">
-                        <i class="fas fa-sync-alt"></i> Refresh
-                    </button>
-                </div>
-                
-                <div id="alarm-history-container" class="space-y-3">
-                    <div class="text-center text-gray-500 py-8">
-                        <i class="fas fa-spinner fa-spin text-2xl mb-2"></i>
-                        <p>Loading alarm history...</p>
-                    </div>
-                </div>
+                <div id="log-container" class="h-auto bg-gray-50 rounded-lg p-4 overflow-y-auto font-mono text-sm space-y-1"></div>
             </div>
         </div>
 
         <!-- Faults Page -->
         <div id="page-faults" class="hidden space-y-6">
+            <div class="card p-6">
+                <h2 class="text-2xl font-bold text-gray-800">Faults</h2>
+            </div>
+
             <!-- Emergency Shutdown Banner -->
             <div id="emergency-shutdown-banner" class="hidden bg-red-800 text-white p-6 rounded-2xl shadow-xl animate-pulse">
                 <div class="flex items-center justify-between">
@@ -1380,8 +1206,7 @@
                 </div>
             </div>
 
-            <!-- Safe Operating Ranges -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+<div class="flex flex-wrap gap-6">
                 <div class="card p-6">
                     <h3 class="text-lg font-semibold text-gray-700 mb-2">Voltage Limits</h3>
                     <div class="flex justify-around items-center">
@@ -1414,15 +1239,299 @@
                     <h2 class="text-xl font-bold">Fault History</h2>
                     <button id="clear-faults-btn" class="btn bg-red-500 hover:bg-red-600 text-sm">Clear History</button>
                 </div>
-                <div id="fault-log-container" class="h-96 bg-gray-50 rounded-lg p-4 overflow-y-auto font-mono text-sm space-y-1">
+                <div id="fault-log-container" class="h-auto bg-gray-50 rounded-lg p-4 overflow-y-auto font-mono text-sm space-y-1">
                      <div class="text-gray-500 text-center py-4">No faults recorded.</div>
                 </div>
+            </div>
+        </div>
+
+        <!-- Menu Page (formerly drawer) -->
+        <div id="page-menu" class="hidden w-full max-w-6xl mx-auto p-4 space-y-6 pb-20">
+            <div class="card p-6">
+                <h2 class="text-2xl font-bold text-gray-800">Menu</h2>
+            </div>
+            
+            <div class="space-y-6">
+                <div class="p-4 rounded-lg bg-gradient-to-br from-indigo-50 to-purple-50 text-center card">
+                    <h1 class="text-2xl font-bold text-indigo-700">Smart Home</h1>
+                    <p class="text-gray-600 text-sm mt-1" id="greeting-text-drawer">Welcome back!</p>
+                     <div class="mt-2 text-indigo-900">
+                        <div class="text-lg font-bold" id="current-time-drawer">00:00:00</div>
+                        <div class="text-xs" id="current-date-drawer">Loading...</div>
+                    </div>
+                </div>
+
+                <!-- Profile Section -->
+                <div class="accordion-item card">
+                    <button class="accordion-toggle" data-accordion="profile">
+                        <span>My Profile</span>
+                        <svg class="w-5 h-5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                        </svg>
+                    </button>
+                    <div class="accordion-content" id="accordion-profile">
+                        <div class="pt-3 pb-2">
+                            <div class="flex flex-col items-center mb-4">
+                                <img id="profile-photo" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Crect fill='%236366f1' width='100' height='100'/%3E%3Ctext x='50%25' y='50%25' font-size='40' fill='%23fff' text-anchor='middle' dy='.3em'%3E👤%3C/text%3E%3C/svg%3E" 
+                                     class="w-20 h-20 rounded-full border-4 border-indigo-500">
+                                <h3 id="profile-display-name" class="mt-2 text-lg font-bold text-indigo-700">Loading...</h3>
+                                <p id="profile-email" class="text-sm text-gray-600">Loading...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- About Section -->
+                <div class="accordion-item card">
+                    <button class="accordion-toggle" data-accordion="about">
+                        <span>📖 About</span>
+                        <svg class="w-5 h-5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                        </svg>
+                    </button>
+                    <div class="accordion-content" id="accordion-about">
+                        <div class="pt-3 pb-2 text-sm text-gray-700 space-y-4">
+                            
+                            <div class="p-4 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl border border-indigo-100 shadow-sm">
+                                <h3 class="font-bold text-base text-indigo-700 mb-2">Smart Home Automation System</h3>
+                                <p class="text-gray-600 text-xs">A comprehensive IoT-based home automation solution that enables remote monitoring and control of electrical appliances, environmental sensors, and power consumption from anywhere in the world.</p>
+                            </div>
+                            
+                            <div class="p-4 bg-white rounded-xl border border-gray-200 shadow-sm">
+                                <p class="font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                                    <svg class="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                    Key Features
+                                </p>
+                                <ul class="grid grid-cols-2 gap-x-4 gap-y-2 text-xs text-gray-600">
+                                    <li class="flex items-center gap-2"><svg class="w-3 h-3 text-green-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>Real-time Control</li>
+                                    <li class="flex items-center gap-2"><svg class="w-3 h-3 text-green-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>Power Monitoring</li>
+                                    <li class="flex items-center gap-2"><svg class="w-3 h-3 text-green-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>Sensor Readings</li>
+                                    <li class="flex items-center gap-2"><svg class="w-3 h-3 text-green-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>Voice Control</li>
+                                    <li class="flex items-center gap-2"><svg class="w-3 h-3 text-green-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>Analytics</li>
+                                    <li class="flex items-center gap-2"><svg class="w-3 h-3 text-green-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>Authentication</li>
+                                </ul>
+                            </div>
+
+                            <div class="p-4 bg-white rounded-xl border border-gray-200 shadow-sm">
+                                <p class="font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                                    <svg class="w-5 h-5 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path></svg>
+                                    Technology Stack
+                                </p>
+                                <div class="flex flex-wrap gap-2 text-xs">
+                                    <span class="bg-gray-200 text-gray-700 px-2 py-1 rounded-full">ESP8266</span>
+                                    <span class="bg-gray-200 text-gray-700 px-2 py-1 rounded-full">Arduino</span>
+                                    <span class="bg-gray-200 text-gray-700 px-2 py-1 rounded-full">Firebase</span>
+                                    <span class="bg-gray-200 text-gray-700 px-2 py-1 rounded-full">MQTT</span>
+                                    <span class="bg-gray-200 text-gray-700 px-2 py-1 rounded-full">Tailwind CSS</span>
+                                    <span class="bg-gray-200 text-gray-700 px-2 py-1 rounded-full">Chart.js</span>
+                                </div>
+                            </div>
+
+                            <div class="p-4 bg-white rounded-xl border border-gray-200 shadow-sm">
+                                <p class="font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                                    <svg class="w-5 h-5 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                                    Power Monitoring
+                                </p>
+                                <ul class="grid grid-cols-2 gap-x-4 gap-y-2 text-xs text-gray-600">
+                                    <li class="flex items-center gap-2"><svg class="w-3 h-3 text-yellow-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>Voltage</li>
+                                    <li class="flex items-center gap-2"><svg class="w-3 h-3 text-yellow-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>Current</li>
+                                    <li class="flex items-center gap-2"><svg class="w-3 h-3 text-yellow-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>Power</li>
+                                    <li class="flex items-center gap-2"><svg class="w-3 h-3 text-yellow-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>Energy</li>
+                                </ul>
+                            </div>
+
+                            <div class="p-4 bg-white rounded-xl border border-gray-200 shadow-sm">
+                                <p class="font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                                    <svg class="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+                                    Security Features
+                                </p>
+                                <ul class="grid grid-cols-2 gap-x-4 gap-y-2 text-xs text-gray-600">
+                                    <li class="flex items-center gap-2"><svg class="w-3 h-3 text-red-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>Authentication</li>
+                                    <li class="flex items-center gap-2"><svg class="w-3 h-3 text-red-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>Password Reset</li>
+                                    <li class="flex items-center gap-2"><svg class="w-3 h-3 text-red-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>Secure MQTT</li>
+                                    <li class="flex items-center gap-2"><svg class="w-3 h-3 text-red-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>Activity Logging</li>
+                                </ul>
+                            </div>
+                            
+                            <div class="pt-2 border-t border-gray-200 mt-4">
+                                <p class="text-xs text-gray-500 italic text-center">Developed with ❤️ for modern smart homes</p>
+                                <p class="text-xs text-gray-500 text-center mt-1">Version 2.1 | November 2025</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Project Team Section -->
+                <div class="accordion-item card">
+                    <button class="accordion-toggle" data-accordion="team">
+                        <span>👥 Project Team</span>
+                        <svg class="w-5 h-5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                        </svg>
+                    </button>
+                    <div class="accordion-content" id="accordion-team">
+                        <div class="pt-3 pb-2 text-sm text-gray-700 space-y-4">
+                            <!-- Team Member 1: Piku -->
+                            <div class="flex items-center gap-3 p-3 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl border border-indigo-100">
+                                <div class="flex-shrink-0">
+                                    <img src="./piku.jpg" alt="Piku Mandal" class="w-16 h-16 rounded-full object-cover border-2 border-indigo-300 shadow-md" onerror="this.onerror=null; this.src='data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%27100%27 height=%27100%27%3E%3Crect fill=%27%236366f1%27 width=%27100%27 height=%27100%27/%3E%3Ctext x=%2750%25%27 y=%2750%25%27 font-size=%2740%27 fill=%27%23fff%27 text-anchor=%27middle%27 dy=%27.3em%27%3EP%3C/text%3E%3C/svg%3E';">
+                                </div>
+                                <div class="flex-1">
+                                    <h4 class="font-bold text-base text-indigo-700">Piku Mandal</h4>
+                                    <p class="text-xs text-gray-600 mb-1"></p>
+                                    <p class="text-xs text-gray-500 mb-1">B.Tech, Electrical Engineering</p>
+                                    <div class="flex items-center gap-2 text-xs">
+                                        <a href="mailto:pikumandal5233@gmail.com" class="text-indigo-600 hover:text-indigo-800 flex items-center gap-1">
+                                            <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                                <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z"></path>
+                                                <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z"></path>
+                                            </svg>
+                                            Email
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Team Member 2: Arnab -->
+                            <div class="flex items-center gap-3 p-3 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl border border-indigo-100">
+                                <div class="flex-shrink-0">
+                                    <img src="./arnab.jpg" alt="Arnab Mandal" class="w-16 h-16 rounded-full object-cover border-2 border-indigo-300 shadow-md" onerror="this.onerror=null; this.src='data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%27100%27 height=%27100%27%3E%3Crect fill='%238b5cf6' width=%27100%27 height=%27100%27/%3E%3Ctext x=%2750%25%27 y=%2750%25%27 font-size=%2740%27 fill=%27%23fff%27 text-anchor=%27middle%27 dy=%27.3em%27%3EA%3C/text%3E%3C/svg%3E';">
+                                </div>
+                                <div class="flex-1">
+                                    <h4 class="font-bold text-base text-indigo-700">Arnab Mandal</h4>
+                                    <p class="text-xs text-gray-600 mb-1"></p>
+                                    <p class="text-xs text-gray-500 mb-1">Diploma, Electrical Engineering</p>
+                                    <div class="flex items-center gap-2 text-xs">
+                                        <a href="mailto:arnabmandal123123@gmail.com" class="text-indigo-600 hover:text-indigo-800 flex items-center gap-1">
+                                            <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                                <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z"></path>
+                                                <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z"></path>
+                                            </svg>
+                                            Email
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="pt-2 border-t border-gray-200">
+                                <p class="text-xs text-gray-500 italic text-center">Building the future of smart homes 🚀</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Feedback Section -->
+                <div class="accordion-item card">
+                    <button class="accordion-toggle" data-accordion="feedback">
+                        <span>💬 Feedback</span>
+                        <svg class="w-5 h-5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                        </svg>
+                    </button>
+                    <div class="accordion-content" id="accordion-feedback">
+                        <div class="pt-3 pb-2">
+                            <p class="text-sm text-gray-600 mb-3">We'd love to hear your thoughts! Share your feedback with us.</p>
+                            
+                            <form id="feedback-form" class="space-y-3">
+                                <div>
+                                    <label class="block text-xs font-semibold mb-1 text-gray-700">Your Name</label>
+                                    <input type="text" id="feedback-name" required placeholder="Enter your name" class="w-full text-sm">
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-xs font-semibold mb-1 text-gray-700">Your Email</label>
+                                    <input type="email" id="feedback-email" required placeholder="your.email@example.com" class="w-full text-sm">
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-xs font-semibold mb-1 text-gray-700">Subject</label>
+                                    <select id="feedback-subject" class="w-full text-sm">
+                                        <option value="General Feedback">General Feedback</option>
+                                        <option value="Bug Report">Bug Report</option>
+                                        <option value="Feature Request">Feature Request</option>
+                                        <option value="Technical Support">Technical Support</option>
+                                        <option value="Collaboration">Collaboration Inquiry</option>
+                                        <option value="Other">Other</option>
+                                    </select>
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-xs font-semibold mb-1 text-gray-700">Message</label>
+                                    <textarea id="feedback-message" rows="4" required placeholder="Share your thoughts, suggestions, or issues..." class="w-full text-sm resize-none"></textarea>
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-xs font-semibold mb-1 text-gray-700">Send To</label>
+                                    <div class="flex gap-2">
+                                        <label class="flex items-center gap-1 text-xs">
+                                            <input type="checkbox" id="send-to-piku" checked class="w-3 h-3 text-indigo-600 rounded">
+                                            <span class="text-gray-700">Piku</span>
+                                        </label>
+                                        <label class="flex items-center gap-1 text-xs">
+                                            <input type="checkbox" id="send-to-arnab" checked class="w-3 h-3 text-purple-600 rounded">
+                                            <span class="text-gray-700">Arnab</span>
+                                        </label>
+                                    </div>
+                                </div>
+                                
+                                <button type="submit" class="btn w-full text-sm py-2">
+                                    <span class="flex items-center justify-center gap-2">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+                                        </svg>
+                                        Send Feedback via Gmail
+                                    </span>
+                                </button>
+                            </form>
+                            
+                            <div class="mt-3 pt-3 border-t border-gray-200">
+                                <p class="text-xs text-gray-500 text-center">Your feedback helps us improve! 🌟</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Logs Button -->
+                <button id="drawer-logs-btn" class="accordion-toggle w-full" style="justify-content: flex-start; gap: 0.5rem;">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                    </svg>
+                    <span>Activity Logs</span>
+                </button>
+
+                <!-- Faults Button -->
+                <button id="drawer-faults-btn" class="accordion-toggle w-full" style="justify-content: flex-start; gap: 0.5rem;">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                    </svg>
+                    <span>Faults & Status</span>
+                </button>
+
+                <!-- Fire Alarm Button -->
+                <button id="drawer-fire-alarm-btn" class="accordion-toggle w-full" style="justify-content: flex-start; gap: 0.5rem;">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                    </svg>
+                    <span>Fire Alarm</span>
+                </button>
+            </div>
+
+            <div class="p-4 border-t border-gray-200 card">
+                <button id="logout-btn" class="w-full btn">Logout</button>
             </div>
         </div>
 
     </main>
 
 <script>
+let isAlarmPlaying = false;
+
+
+
+
+
+
+
 // Firebase Configuration
 const firebaseConfig = {
     apiKey: "AIzaSyA8iM4CLqitmYsJ8gk4OZirnU4f1MVMOxQ",
@@ -1618,7 +1727,7 @@ async function addLog(text, category = 'general') {
     };
     
     logEntries.push(logEntry);
-    renderLog();
+    renderLog(logEntry);
     
     // Save to Firebase immediately
     if (window.firebaseModules && realtimeDb) {
@@ -1651,37 +1760,61 @@ async function trackDeviceUsage(deviceName, deviceType, action, value = null) {
     }
 }
 
-function renderLog() {
-    const search = document.getElementById('log-search')?.value.toLowerCase() || '';
+function renderLog(entry = null) {
     const container = document.getElementById('log-container');
     if (!container) return;
-    
-    container.innerHTML = '';
-    
-    const filteredEntries = logEntries.filter(e => {
-        const searchText = `${e.text} ${e.user || ''}`.toLowerCase();
-        return searchText.includes(search);
-    });
-    
-    if (filteredEntries.length === 0) {
-        container.innerHTML = '<div class="text-gray-500 text-center py-4">No logs found</div>';
-        return;
-    }
-    
-    filteredEntries.forEach(entry => {
+
+    if (entry) {
+        // Append a single new entry
         const userBadge = entry.user ? `<span class="text-blue-600 font-semibold">[${entry.user}]</span>` : '';
         const categoryBadge = entry.category && entry.category !== 'general' 
             ? `<span class="text-purple-600">[${entry.category}]</span>` 
             : '';
         
-        container.innerHTML += `
-            <div class="hover:bg-gray-100 p-1 rounded">
+        const newLog = document.createElement('div');
+        newLog.className = 'hover:bg-gray-100 p-1 rounded';
+        newLog.innerHTML = `
+            <span class="text-cyan-600">[${entry.time}]</span> 
+            ${userBadge} 
+            ${categoryBadge} 
+            ${entry.text}
+        `;
+        container.appendChild(newLog);
+
+    } else {
+        // Full re-render
+        const search = document.getElementById('log-search')?.value.toLowerCase() || '';
+        container.innerHTML = '';
+        
+        const filteredEntries = logEntries.filter(e => {
+            const searchText = `${e.text} ${e.user || ''}`.toLowerCase();
+            return searchText.includes(search);
+        });
+        
+        if (filteredEntries.length === 0) {
+            container.innerHTML = '<div class="text-gray-500 text-center py-4">No logs found</div>';
+            return;
+        }
+        
+        const fragment = document.createDocumentFragment();
+        filteredEntries.forEach(entry => {
+            const userBadge = entry.user ? `<span class="text-blue-600 font-semibold">[${entry.user}]</span>` : '';
+            const categoryBadge = entry.category && entry.category !== 'general' 
+                ? `<span class="text-purple-600">[${entry.category}]</span>` 
+                : '';
+            
+            const logElement = document.createElement('div');
+            logElement.className = 'hover:bg-gray-100 p-1 rounded';
+            logElement.innerHTML = `
                 <span class="text-cyan-600">[${entry.time}]</span> 
                 ${userBadge} 
                 ${categoryBadge} 
                 ${entry.text}
-            </div>`;
-    });
+            `;
+            fragment.appendChild(logElement);
+        });
+        container.appendChild(fragment);
+    }
     
     container.scrollTop = container.scrollHeight;
 }
@@ -1689,10 +1822,16 @@ function renderLog() {
 // Update time
 function updateTime() {
     const now = new Date();
-    document.getElementById('current-time').textContent = now.toLocaleTimeString();
-    document.getElementById('current-date').textContent = now.toLocaleDateString('en-US', { 
+    const timeString = now.toLocaleTimeString();
+    const dateString = now.toLocaleDateString('en-US', { 
         weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' 
     });
+
+    const timeEl = document.getElementById('current-time-drawer');
+    const dateEl = document.getElementById('current-date-drawer');
+
+    if (timeEl) timeEl.textContent = timeString;
+    if (dateEl) dateEl.textContent = dateString;
 }
 setInterval(updateTime, 1000);
 updateTime();
@@ -1716,6 +1855,58 @@ function updateEspStatus(isOnline) {
         `;
     }
 }
+function startAlarm(skipFirebase = false) {
+    if (isAlarmPlaying) return;
+    isAlarmPlaying = true;
+
+    // Show banner and other UI changes
+    document.getElementById('flame-alarm-banner').classList.remove('hidden');
+    const stopBtn = document.getElementById('stop-alarm-btn-page');
+    if (stopBtn) stopBtn.disabled = false;
+
+    // Turn off all appliances
+    for (let i = 1; i <= NUM_LIGHTS; i++) {
+        publishMessage(`homeautomation/project/light/${i}/set`, "OFF");
+    }
+    for (let i = 1; i <= 2; i++) { // Assuming 2 fans
+        publishMessage(`homeautomation/project/fan/${i}/set`, "0");
+    }
+
+    // Show appliances off message
+    document.getElementById('fire-alarm-appliances-off').classList.remove('hidden');
+
+    addLog("FIRE ALARM TRIGGERED! All appliances turned off.", 'alarm');
+    showToast("FIRE ALARM! All appliances turned off.", "error");
+
+    if (!skipFirebase && realtimeDb) {
+        const { dbRef, set } = window.firebaseModules;
+        const alarmRef = dbRef(realtimeDb, 'alarm/flame');
+        set(alarmRef, { status: 'DETECTED', timestamp: Date.now() });
+    }
+}
+
+function stopAlarm(skipFirebase = false) {
+    if (!isAlarmPlaying) return;
+    isAlarmPlaying = false;
+
+    // Hide banner and other UI changes
+    document.getElementById('flame-alarm-banner').classList.add('hidden');
+    const stopBtn = document.getElementById('stop-alarm-btn-page');
+    if (stopBtn) stopBtn.disabled = true;
+
+    // Hide appliances off message
+    document.getElementById('fire-alarm-appliances-off').classList.add('hidden');
+
+    addLog("Fire alarm stopped.", 'alarm');
+    showToast("Fire alarm stopped.", "success");
+
+    if (!skipFirebase && realtimeDb) {
+        const { dbRef, set } = window.firebaseModules;
+        const alarmRef = dbRef(realtimeDb, 'alarm/flame');
+        set(alarmRef, { status: 'CLEAR', timestamp: Date.now() });
+    }
+}
+
 // MQTT Functions
 function connectMqtt() {
     client = new Paho.Client(MQTT_BROKER, MQTT_PORT, "WebClient_" + Date.now());
@@ -1735,7 +1926,7 @@ function connectMqtt() {
         console.log("Message:", topic, payload, "retained:", retained);
 
         // If we receive any message that is not retained, it means ESP is online
-        if (!retained) {
+        if (!retained && !topic.includes("alarm/flame")) {
             updateEspStatus(true);
         }
         
@@ -1760,10 +1951,13 @@ function connectMqtt() {
         
         // Handle fire alarm
         if (topic.includes("alarm/flame")) {
-            if (payload === "CLEAR" || payload === "1") {
-                startAlarm();  // Fire detected - start alarm!
-            } else if (payload === "DETECTED" || payload === "0") {
-                stopAlarm();  // No fire - stop alarm
+            // Normalize common payloads: 'DETECTED' or '1' means alarm ON; 'CLEAR' or '0' means alarm OFF
+            if (payload === "DETECTED" || payload === "1") {
+                // Fire detected
+                startAlarm(true); // true = skip saving back to Firebase (prevent loops)
+            } else if (payload === "CLEAR" || payload === "0") {
+                // Alarm cleared
+                stopAlarm(true); // skip Firebase update
             }
         }
         
@@ -1818,24 +2012,115 @@ function publishMessage(topic, payload, retained = false) {
     client.send(message);
 }
 
+function reconnect() {
+    if (client) {
+        try {
+            client.disconnect();
+        } catch (error) {
+            console.error("Error disconnecting client:", error);
+        }
+    }
+    connectMqtt();
+    showToast("Refreshing connection...", "info");
+    setTimeout(() => {
+        location.reload();
+    }, 2000);
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const reconnectBtn = document.getElementById('reconnect-btn');
+    if(reconnectBtn) {
+        reconnectBtn.addEventListener('click', reconnect);
+    }
+
+    // Add event listener for the fire alarm history refresh button
+    const refreshHistoryBtn = document.getElementById('refresh-alarm-history-btn-page');
+    if(refreshHistoryBtn) {
+        refreshHistoryBtn.addEventListener('click', loadAlarmHistory);
+    }
+});
+
 // --- Page Navigation ---
-document.querySelectorAll('.nav-tab').forEach(tab => {
-    tab.addEventListener('click', () => {
-        const page = tab.dataset.page;
-        
-        // Hide all pages
-        document.getElementById('page-dashboard').classList.add('hidden');
-        document.getElementById('page-analytics').classList.add('hidden');
-        document.getElementById('page-logs').classList.add('hidden');
-        document.getElementById('page-faults').classList.add('hidden');
-        
-        // Deactivate all tabs
-        document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
-        
-        // Show selected page and activate tab
-        document.getElementById(`page-${page}`).classList.remove('hidden');
-        tab.classList.add('active');
+function showPage(pageName) {
+    // Hide all pages
+    ['control', 'monitor', 'analytics', 'logs', 'faults', 'menu', 'fire-alarm'].forEach(p => {
+        const pageEl = document.getElementById(`page-${p}`);
+        if (pageEl) pageEl.classList.add('hidden');
     });
+    
+    // Deactivate all nav tabs
+    document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+    
+    // Show selected page
+    const pageToShow = document.getElementById(`page-${pageName}`);
+    if (pageToShow) {
+        pageToShow.classList.remove('hidden');
+    }
+    
+    // Activate the corresponding nav tab if it exists
+    const tabToActivate = document.querySelector(`.nav-tab[data-page="${pageName}"]`);
+    if (tabToActivate) {
+        tabToActivate.classList.add('active');
+    }
+
+    // --- Page-specific logic ---
+    if (pageName === 'fire-alarm') {
+        loadAlarmHistory();
+    }
+
+    if (pageName === 'analytics') {
+        isAnalyticsPageActive = true;
+        
+        // Initialize all charts if not already done
+        initSensorCharts();
+        initPZEMCharts();
+        initCharts();
+
+        // Force a resize after a short delay to ensure containers are visible
+        setTimeout(() => {
+            [
+                tempHistoryChart, humidityHistoryChart, gasHistoryChart,
+                powerHistoryChart, voltageHistoryChart, currentHistoryChart, energyHistoryChart,
+                lightsTimelineChart, fansTimelineChart,
+                pieChart, barChart
+            ].forEach(chart => {
+                if (chart) chart.resize();
+            });
+        }, 100);
+
+        // Load initial data for all analytics sections
+        loadSensorData(currentSensorTimeRange);
+        loadPZEMData(currentPZEMTimeRange);
+        loadDeviceUsageAnalytics(currentDeviceTimeRange);
+        
+        // Start real-time listeners for live updates
+        console.log('🔴 Starting all real-time analytics listeners...');
+        startSensorRealtimeListener(currentSensorTimeRange);
+        startPZEMRealtimeListener(currentPZEMTimeRange);
+        startDeviceUsageRealtimeListener(currentDeviceTimeRange);
+
+    } else {
+        // Stop analytics listeners if we are navigating away from the page
+        if (isAnalyticsPageActive) {
+            isAnalyticsPageActive = false;
+            console.log('🛑 Stopping all real-time analytics listeners...');
+            stopSensorRealtimeListener();
+            stopPZEMRealtimeListener();
+            stopDeviceUsageRealtimeListener();
+        }
+    }
+
+    // Load data for Logs and Faults pages (they share some data)
+    if (pageName === 'logs') {
+        loadLogsFromFirebase();
+    }
+    if (pageName === 'faults') {
+        loadFaultHistory();
+    }
+}
+
+document.querySelectorAll('.nav-tab').forEach(tab => {
+    tab.addEventListener('click', () => showPage(tab.dataset.page));
 });
 
 function updateLightUI(deviceId, status) {
@@ -2083,53 +2368,114 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // Fire Alarm
-let isAlarmPlaying = false;
-let alarmSound = null;
-let alarmInterval = null;
 let currentAlarmId = null;
 
-// Initialize alarm sound (using Web Audio API for reliability)
+// Robust alarm sound using a single AudioContext and persistent oscillators
 function initAlarmSound() {
+    if (window._alarmInit) return;
+    window._alarmInit = true;
+
     const AudioContext = window.AudioContext || window.webkitAudioContext;
     if (!AudioContext) {
-        console.warn("Web Audio API not supported");
+        console.warn('Web Audio API not supported');
         return;
     }
-    
-    // Create audio context
-    const audioCtx = new AudioContext();
-    
-    // Function to play siren sound
+
+    const ctx = new AudioContext();
+    window._alarmAudioCtx = ctx;
+    window._alarmNodes = [];
+    window._alarmHeartbeat = null;
+
     window.playSirenSound = function() {
-        if (audioCtx.state === 'suspended') {
-            audioCtx.resume();
+        try {
+            if (!ctx) return;
+            if (ctx.state === 'suspended') ctx.resume().catch(()=>{});
+
+            // If already playing, don't create new nodes
+            if (window._alarmNodes.length > 0) return;
+
+            const masterGain = ctx.createGain();
+            masterGain.gain.value = 0.5;
+            masterGain.connect(ctx.destination);
+
+            // Wailing oscillator
+            const osc = ctx.createOscillator();
+            osc.type = 'sawtooth';
+            osc.frequency.value = 600;
+
+            const lfo = ctx.createOscillator();
+            lfo.type = 'sine';
+            lfo.frequency.value = 0.6;
+            const lfoGain = ctx.createGain();
+            lfoGain.gain.value = 300;
+            lfo.connect(lfoGain);
+            lfoGain.connect(osc.frequency);
+
+            const oscGain = ctx.createGain();
+            oscGain.gain.value = 0.9;
+            osc.connect(oscGain);
+            oscGain.connect(masterGain);
+
+            // High urgency overlay
+            const overlay = ctx.createOscillator();
+            overlay.type = 'triangle';
+            overlay.frequency.value = 1200;
+            const overlayGain = ctx.createGain();
+            overlayGain.gain.value = 0.12;
+            overlay.connect(overlayGain);
+            overlayGain.connect(masterGain);
+
+            // Start nodes
+            lfo.start();
+            osc.start();
+            overlay.start();
+
+            // Save nodes for cleanup
+            window._alarmNodes.push({ lfo, lfoGain, osc, oscGain, masterGain, overlay, overlayGain });
+
+            // Heartbeat to resume context if suspended
+            if (!window._alarmHeartbeat) {
+                window._alarmHeartbeat = setInterval(() => {
+                    if (ctx.state === 'suspended') ctx.resume().catch(()=>{});
+                }, 1000);
+            }
+        } catch (e) {
+            console.error('Error starting siren', e);
         }
-        
-        const oscillator = audioCtx.createOscillator();
-        const gainNode = audioCtx.createGain();
-        
-        oscillator.connect(gainNode);
-        gainNode.connect(audioCtx.destination);
-        
-        // Siren effect: alternating frequencies
-        oscillator.frequency.setValueAtTime(800, audioCtx.currentTime);
-        oscillator.frequency.exponentialRampToValueAtTime(1200, audioCtx.currentTime + 0.5);
-        oscillator.frequency.exponentialRampToValueAtTime(800, audioCtx.currentTime + 1);
-        
-        gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
-        gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 1);
-        
-        oscillator.start(audioCtx.currentTime);
-        oscillator.stop(audioCtx.currentTime + 1);
+    };
+
+    window.stopAlarmSound = function() {
+        try {
+            if (!window._alarmNodes || window._alarmNodes.length === 0) return;
+
+            window._alarmNodes.forEach(n => {
+                try { if (n.lfo && n.lfo.stop) n.lfo.stop(0); } catch(e){}
+                try { if (n.osc && n.osc.stop) n.osc.stop(0); } catch(e){}
+                try { if (n.overlay && n.overlay.stop) n.overlay.stop(0); } catch(e){}
+                try { n.lfo && n.lfo.disconnect(); } catch(e){}
+                try { n.lfoGain && n.lfoGain.disconnect(); } catch(e){}
+                try { n.osc && n.osc.disconnect(); } catch(e){}
+                try { n.oscGain && n.oscGain.disconnect(); } catch(e){}
+                try { n.overlay && n.overlay.disconnect(); } catch(e){}
+                try { n.overlayGain && n.overlayGain.disconnect(); } catch(e){}
+                try { n.masterGain && n.masterGain.disconnect(); } catch(e){}
+            });
+
+            window._alarmNodes = [];
+            if (window._alarmHeartbeat) {
+                clearInterval(window._alarmHeartbeat);
+                window._alarmHeartbeat = null;
+            }
+        } catch (e) {
+            console.error('Error stopping siren', e);
+        }
     };
 }
 
-// Save fire alarm to Firebase history
+// Save fire alarm to Firebase history (consistent path)
 async function saveFireAlarmHistory(status) {
     if (!realtimeDb) return;
-    
     const { dbRef, push, set } = window.firebaseModules;
-    
     try {
         const alarmData = {
             type: 'fire',
@@ -2138,234 +2484,233 @@ async function saveFireAlarmHistory(status) {
             time: new Date().toLocaleString(),
             user: currentUser ? currentUser.email : 'System'
         };
-        
-        // Save to Firebase alarms/history
-        const historyRef = dbRef(realtimeDb, 'alarms/history');
+
+        const historyRef = dbRef(realtimeDb, 'alarms/fire/history');
         const newAlarmRef = push(historyRef);
         await set(newAlarmRef, alarmData);
-        
-        console.log(`🔥 Fire alarm ${status} saved to history`);
-        
-        // Also update current alarm status
+
+        // update current status
         const currentRef = dbRef(realtimeDb, 'alarms/fire/current');
-        await set(currentRef, {
-            active: status === 'detected',
-            ...alarmData
-        });
-        
+        await set(currentRef, { active: status === 'detected', ...alarmData });
+
+        console.log(`🔥 Fire alarm ${status} saved to alarms/fire/history`);
         return newAlarmRef.key;
-    } catch (error) {
-        console.error('Error saving fire alarm history:', error);
+    } catch (e) {
+        console.error('Error saving fire alarm history', e);
     }
 }
 
 function startAlarm(skipFirebaseUpdate = false) {
     if (isAlarmPlaying) return;
     isAlarmPlaying = true;
-    
-    // Show visual alarm
-    document.getElementById('flame-alarm-banner').classList.remove('hidden');
-    const stopBtn = document.getElementById('stop-alarm-btn');
-    if (stopBtn) {
-        stopBtn.disabled = false;
-        stopBtn.classList.remove('bg-gray-400');
-        stopBtn.classList.add('bg-red-600', 'hover:bg-red-700');
-    }
-    
-    // Initialize sound if not done
-    if (!window.playSirenSound) {
-        initAlarmSound();
-    }
-    
-    // Play alarm sound continuously
-    if (window.playSirenSound) {
-        window.playSirenSound();
-        alarmInterval = setInterval(() => {
-            if (isAlarmPlaying) {
-                window.playSirenSound();
-            }
-        }, 1000); // Play every second
-    }
-    
-    // Only save to Firebase if not triggered by Firebase listener (prevent loop)
+
+    // visual
+    const banner = document.getElementById('flame-alarm-banner');
+    if (banner) banner.classList.remove('hidden');
+
+    // enable page stop buttons
+    ['stop-alarm-btn', 'stop-alarm-btn-page'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) { el.disabled = false; el.classList.remove('bg-gray-400'); el.classList.add('bg-red-600','hover:bg-red-700'); }
+    });
+
+    // audio
+    initAlarmSound();
+    if (window.playSirenSound) window.playSirenSound();
+
+    // persist in DB (unless this action already came from DB)
     if (!skipFirebaseUpdate) {
-        saveFireAlarmHistory('detected').then(alarmId => {
-            currentAlarmId = alarmId;
-        });
+        saveFireAlarmHistory('detected').then(id => currentAlarmId = id);
     }
-    
-    addLog("🚨 FIRE ALARM TRIGGERED!", 'alarm');
-    showToast("🔥 FIRE DETECTED!", "error");
-    
-    // Make page title blink
-    let originalTitle = document.title;
-    let titleInterval = setInterval(() => {
-        if (isAlarmPlaying) {
-            document.title = document.title === originalTitle ? "🔥 FIRE ALARM! 🔥" : originalTitle;
-        } else {
-            document.title = originalTitle;
-            clearInterval(titleInterval);
-        }
-    }, 1000);
+
+    addLog('🚨 FIRE ALARM TRIGGERED!', 'alarm');
+    showToast('🔥 FIRE DETECTED!', 'error');
+
+    // title blink
+    if (!window._alarmTitleInterval) {
+        const originalTitle = document.title || 'Smart Home Automation';
+        window._alarmTitleInterval = setInterval(() => {
+            if (isAlarmPlaying) document.title = document.title === originalTitle ? '🔥 FIRE ALARM! 🔥' : originalTitle;
+            else { document.title = originalTitle; clearInterval(window._alarmTitleInterval); window._alarmTitleInterval = null; }
+        }, 1000);
+    }
 }
 
 function stopAlarm(skipFirebaseUpdate = false) {
     if (!isAlarmPlaying) return;
-    
     isAlarmPlaying = false;
-    
-    // Hide visual alarm
-    document.getElementById('flame-alarm-banner').classList.add('hidden');
-    const stopBtn = document.getElementById('stop-alarm-btn');
-    if (stopBtn) {
-        stopBtn.disabled = true;
-        stopBtn.classList.add('bg-gray-400');
-        stopBtn.classList.remove('bg-red-600', 'hover:bg-red-700');
-    }
-    
-    // Stop alarm sound
-    if (alarmInterval) {
-        clearInterval(alarmInterval);
-        alarmInterval = null;
-    }
-    
-    // Only save to Firebase if not triggered by Firebase listener (prevent loop)
-    if (!skipFirebaseUpdate) {
-        saveFireAlarmHistory('stopped');
-    }
-    
-    addLog("✓ Fire alarm stopped", 'alarm');
-    showToast("Alarm stopped", "success");
-    
-    // Reset page title
-    document.title = "Smart Home Automation";
+
+    // visual
+    const banner = document.getElementById('flame-alarm-banner');
+    if (banner) banner.classList.add('hidden');
+
+    // disable stop buttons
+    ['stop-alarm-btn', 'stop-alarm-btn-page'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) { el.disabled = true; el.classList.add('bg-gray-400'); el.classList.remove('bg-red-600','hover:bg-red-700'); }
+    });
+
+    // stop audio
+    try { if (window.stopAlarmSound) window.stopAlarmSound(); } catch(e) { console.error(e); }
+
+    // save to DB unless this stop was triggered by DB listener
+    if (!skipFirebaseUpdate) saveFireAlarmHistory('stopped');
+
+    addLog('✓ Fire alarm stopped', 'alarm');
+    showToast('Alarm stopped', 'success');
+
+    // reset title
+    document.title = 'Smart Home Automation';
 }
 
-// Load Fire Alarm History
+function escapeHtml(text) {
+    if (!text) return '';
+    const map = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;'
+    };
+    return text.replace(/[&<>"']/g, function(m) { return map[m]; });
+}
+
+// Load Fire Alarm History (robust)
 async function loadAlarmHistory() {
-    const container = document.getElementById('alarm-history-container');
-    
-    if (!firebaseReady || !realtimeDb) {
-        container.innerHTML = `
-            <div class="text-center text-gray-500 py-8">
-                <i class="fas fa-exclamation-circle text-2xl mb-2"></i>
-                <p>Firebase not ready</p>
-            </div>
-        `;
+    const container = document.getElementById('alarm-history-container-page');
+    if (!container) return;
+    container.innerHTML = '<div class="text-center text-gray-500 py-8"><p>Loading alarm history...</p></div>';
+
+    if (!realtimeDb) {
+        container.innerHTML = '<div class="text-center text-gray-500 py-8"><p>Realtime DB not initialized.</p></div>';
         return;
     }
+
+    const { dbRef, get, query, orderByChild, limitToLast } = window.firebaseModules;
+    const possiblePaths = ['alarms/fire/history', 'alarms/history'];
+    const allItems = [];
     
     try {
-        const { dbRef, get, query, orderByChild, limitToLast } = window.firebaseModules;
-        const historyRef = dbRef(realtimeDb, 'alarms/history');
-        const historyQuery = query(historyRef, orderByChild('timestamp'), limitToLast(50));
-        const snapshot = await get(historyQuery);
-        
-        if (!snapshot.exists()) {
-            container.innerHTML = `
-                <div class="text-center text-gray-500 py-8">
-                    <i class="fas fa-info-circle text-2xl mb-2"></i>
-                    <p>No alarm history found</p>
-                </div>
-            `;
-            return;
-        }
-        
-        const alarms = [];
-        snapshot.forEach(child => {
-            const data = child.val();
-            if (data.type === 'fire') {
-                alarms.push({
-                    id: child.key,
-                    ...data
+        for (const p of possiblePaths) {
+            const ref = dbRef(realtimeDb, p);
+            const q = query(ref, orderByChild('timestamp'), limitToLast(200));
+            const snap = await get(q);
+            if (snap && snap.exists()) {
+                snap.forEach(child => {
+                    const item = child.val();
+                    item._key = child.key; 
+                    allItems.push(item);
                 });
             }
+        }
+
+        if (fireAlarmHistoryChart) {
+            fireAlarmHistoryChart.destroy();
+        }
+
+        if (allItems.length === 0) {
+            container.innerHTML = '<div class="text-center text-gray-500 py-8"><p>No alarm history found.</p></div>';
+            // Still show an empty chart
+            const ctx = document.getElementById('fireAlarmChart').getContext('2d');
+            fireAlarmHistoryChart = new Chart(ctx, {
+                type: 'bar',
+                data: { labels: [], datasets: [] },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { title: { display: true, text: 'No data to display' } } }
+            });
+            return;
+        }
+
+        const uniqueItems = Array.from(new Map(allItems.map(item => [item._key, item])).values());
+        uniqueItems.sort((a,b) => (b.timestamp||0) - (a.timestamp||0));
+        
+        const itemsToDisplay = uniqueItems.slice(0, 200);
+
+        // Process data for the chart
+        const last7Days = [...Array(7)].map((_, i) => {
+            const d = new Date();
+            d.setDate(d.getDate() - i);
+            return d.toLocaleDateString('en-CA'); // YYYY-MM-DD format
+        }).reverse();
+
+        const alarmCounts = last7Days.map(day => {
+            return itemsToDisplay.filter(item => {
+                if (!item.timestamp) return false;
+                const itemDate = new Date(item.timestamp).toLocaleDateString('en-CA');
+                const isDetected = (item.status || item.action || 'detected') === 'detected' || (item.status || item.action || 'detected') === true || (item.status || item.action || 'detected') === 'start' || (item.status || item.action || 'detected') === 'DETECTED';
+                return itemDate === day && isDetected;
+            }).length;
+        });
+
+        const labels = last7Days.map(day => {
+            const d = new Date(day);
+            return d.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric' });
         });
         
-        // Sort by timestamp descending (newest first)
-        alarms.sort((a, b) => b.timestamp - a.timestamp);
-        
-        if (alarms.length === 0) {
-            container.innerHTML = `
-                <div class="text-center text-gray-500 py-8">
-                    <i class="fas fa-info-circle text-2xl mb-2"></i>
-                    <p>No fire alarm history found</p>
-                </div>
-            `;
-            return;
-        }
-        
-        // Group alarms by pairs (detected + stopped)
-        const groupedAlarms = [];
-        for (let i = 0; i < alarms.length; i++) {
-            if (alarms[i].status === 'detected') {
-                const detected = alarms[i];
-                const stopped = alarms.find((a, idx) => 
-                    idx > i && 
-                    a.status === 'stopped' && 
-                    a.timestamp > detected.timestamp &&
-                    Math.abs(a.timestamp - detected.timestamp) < 3600000 // Within 1 hour
-                );
-                
-                groupedAlarms.push({
-                    detected,
-                    stopped,
-                    duration: stopped ? (stopped.timestamp - detected.timestamp) / 1000 : null
-                });
+        const ctx = document.getElementById('fireAlarmChart').getContext('2d');
+        fireAlarmHistoryChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Fire Alarms',
+                    data: alarmCounts,
+                    backgroundColor: 'rgba(239, 68, 68, 0.6)',
+                    borderColor: 'rgba(220, 38, 38, 1)',
+                    borderWidth: 1,
+                    borderRadius: 5,
+                    hoverBackgroundColor: 'rgba(220, 38, 38, 0.8)'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: { beginAtZero: true, ticks: { stepSize: 1 }, grid: { color: 'rgba(0, 0, 0, 0.05)' } },
+                    x: { grid: { display: false } }
+                },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: 'rgba(0, 0, 0, 0.7)',
+                        titleFont: { size: 14 },
+                        bodyFont: { size: 12 },
+                        callbacks: {
+                            label: function(context) {
+                                return `Alarms: ${context.parsed.y}`;
+                            }
+                        }
+                    }
+                }
             }
-        }
-        
-        // Render alarm history
-        let html = '';
-        
-        groupedAlarms.forEach((alarm, index) => {
-            const detectedTime = new Date(alarm.detected.timestamp).toLocaleString();
-            const stoppedTime = alarm.stopped ? new Date(alarm.stopped.timestamp).toLocaleString() : 'Still active';
-            const duration = alarm.duration ? formatDuration(alarm.duration) : 'N/A';
-            
-            const bgColor = alarm.stopped ? 'bg-gray-50' : 'bg-red-50';
-            const statusBadge = alarm.stopped 
-                ? '<span class="px-2 py-1 bg-green-500 text-white rounded text-xs">Resolved</span>'
-                : '<span class="px-2 py-1 bg-red-500 text-white rounded text-xs animate-pulse">Active</span>';
-            
-            html += `
-                <div class="${bgColor} border-l-4 ${alarm.stopped ? 'border-gray-400' : 'border-red-500'} p-4 rounded-r">
-                    <div class="flex justify-between items-start mb-2">
+        });
+
+        container.innerHTML = itemsToDisplay.map(entry => {
+            const ts = entry.timestamp ? new Date(entry.timestamp).toLocaleString() : 'Unknown time';
+            const status = entry.status || entry.action || 'detected';
+            const isDetected = (status === 'detected' || status === true || status === 'start' || status === 'DETECTED');
+            const label = isDetected ? 'Fire Alarm Triggered' : 'Fire Alarm Stopped';
+            const colorBg = isDetected ? 'bg-red-100' : 'bg-green-100';
+            const iconBg = isDetected ? 'bg-red-500' : 'bg-green-500';
+            const icon = isDetected ? '🔥' : '✅';
+            const note = entry.note ? `<div class="text-sm text-gray-600">${escapeHtml(entry.note)}</div>` : '';
+            return `
+                <div class="border-b py-3 ${colorBg}">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <div class="font-semibold text-sm">${label}</div>
+                            <div class="text-xs text-gray-500">${ts}</div>
+                        </div>
                         <div class="flex items-center gap-2">
-                            <i class="fas fa-fire text-red-600"></i>
-                            <span class="font-bold">Fire Alarm #${groupedAlarms.length - index}</span>
-                            ${statusBadge}
-                        </div>
-                        <span class="text-xs text-gray-500">${duration} duration</span>
-                    </div>
-                    
-                    <div class="grid grid-cols-2 gap-3 text-sm">
-                        <div>
-                            <span class="text-gray-600">🔴 Detected:</span>
-                            <div class="font-medium">${detectedTime}</div>
-                            ${alarm.detected.user ? `<div class="text-xs text-gray-500">By: ${alarm.detected.user}</div>` : ''}
-                        </div>
-                        <div>
-                            <span class="text-gray-600">✅ Stopped:</span>
-                            <div class="font-medium">${stoppedTime}</div>
-                            ${alarm.stopped && alarm.stopped.user ? `<div class="text-xs text-gray-500">By: ${alarm.stopped.user}</div>` : ''}
+                            <div class="w-8 h-8 rounded-full flex items-center justify-center ${iconBg} text-white">${icon}</div>
                         </div>
                     </div>
+                    ${note}
                 </div>
             `;
-        });
-        
-        container.innerHTML = html;
-        
-    } catch (error) {
-        console.error("Error loading alarm history:", error);
-        container.innerHTML = `
-            <div class="text-center text-red-500 py-8">
-                <i class="fas fa-exclamation-triangle text-2xl mb-2"></i>
-                <p>Error loading alarm history</p>
-                <p class="text-sm mt-2">${error.message}</p>
-            </div>
-        `;
+        }).join('');
+    } catch (err) {
+        console.error('Error loading alarm history', err);
+        container.innerHTML = '<div class="text-center text-red-500 py-8"><p>Error loading alarm history.</p></div>';
     }
 }
 
@@ -2723,27 +3068,28 @@ function createDeviceCard(app) {
             <!-- Timer Section -->
             <div class="mt-4 pt-4 border-t border-gray-200">
                 <button class="accordion-toggle" onclick="toggleTimerSection(${app.id})">
-                    <span>Set Timer</span>
+                    <span>Manage Timers</span>
                     <svg class="w-5 h-5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
                 </button>
                 <div id="timer-section-${app.id}" class="accordion-content pt-3" style="max-height: 0px;">
-                    <div>
-                        <label class="block text-xs font-medium text-gray-600 mb-1">On Time</label>
-                        <input type="time" id="on-time-${app.id}" class="w-full">
+                    <div id="timer-list-${app.id}" class="space-y-2 mb-4">
+                        <!-- Timer items will be injected here -->
                     </div>
-                    <div class="mt-2">
-                        <label class="block text-xs font-medium text-gray-600 mb-1">Off Time</label>
-                        <input type="time" id="off-time-${app.id}" class="w-full">
+                    <div class="space-y-2">
+                        <h4 class="text-sm font-semibold text-gray-700">Add New Timer</h4>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-600 mb-1">Time</label>
+                            <input type="time" id="new-timer-time-${app.id}" class="w-full">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-600 mb-1">Action</label>
+                            <select id="new-timer-action-${app.id}" class="w-full">
+                                <option value="ON">Turn ON</option>
+                                <option value="OFF">Turn OFF</option>
+                            </select>
+                        </div>
+                        <button class="btn w-full mt-3" onclick="addTimer(${app.id})">Add Timer</button>
                     </div>
-                    <div class="flex items-center justify-between mt-3">
-                        <label class="text-sm font-medium text-gray-700">Enable Timer</label>
-                        <label class="toggle-switch">
-                            <input type="checkbox" id="timer-enable-${app.id}" class="toggle-checkbox">
-                            <div class="toggle-track"></div>
-                            <div class="toggle-thumb"></div>
-                        </label>
-                    </div>
-                    <button class="btn w-full mt-3" onclick="setTimer(${app.id})">Save Timer</button>
                 </div>
             </div>
         </div>
@@ -2761,35 +3107,70 @@ function toggleTimerSection(appId) {
     }
 }
 
-async function setTimer(appId) {
+async function addTimer(appId) {
     if (!realtimeDb) {
         showToast("Database not ready", "error");
         return;
     }
 
-    const { dbRef, set } = window.firebaseModules;
-    const onTime = document.getElementById(`on-time-${appId}`).value;
-    const offTime = document.getElementById(`off-time-${appId}`).value;
-    const enabled = document.getElementById(`timer-enable-${appId}`).checked;
+    const { dbRef, push, serverTimestamp } = window.firebaseModules;
+    const time = document.getElementById(`new-timer-time-${appId}`).value;
+    const action = document.getElementById(`new-timer-action-${appId}`).value;
 
-    if (enabled && (!onTime || !offTime)) {
-        showToast("Please set both ON and OFF times.", "error");
+    if (!time) {
+        showToast("Please set a time for the timer.", "error");
         return;
     }
 
     const appliance = appliances.find(a => a.id == appId);
     if (!appliance) return;
 
-    const timerData = { onTime, offTime, enabled, appId, deviceName: appliance.name };
-    const timerRef = dbRef(realtimeDb, `timers/${appId}`);
+    const timerData = { 
+        time, 
+        action, 
+        enabled: true, 
+        createdAt: serverTimestamp() 
+    };
+    const timersRef = dbRef(realtimeDb, `timers/${appId}`);
     
     try {
-        await set(timerRef, timerData);
-        showToast("Timer saved successfully!", "success");
-        addLog(`Timer for ${appliance.name} saved: ${enabled ? 'ON ' + onTime + ', OFF ' + offTime : 'Disabled'}`, 'timer');
+        await push(timersRef, timerData);
+        showToast("Timer added successfully!", "success");
+        addLog(`Timer for ${appliance.name} added: ${action} at ${time}`, 'timer');
     } catch (error) {
-        console.error("Error saving timer:", error);
-        showToast("Failed to save timer.", "error");
+        console.error("Error adding timer:", error);
+        showToast("Failed to add timer.", "error");
+    }
+}
+
+async function deleteTimer(appId, timerId) {
+    if (!realtimeDb) {
+        showToast("Database not ready", "error");
+        return;
+    }
+    const { dbRef, remove } = window.firebaseModules;
+    const timerRef = dbRef(realtimeDb, `timers/${appId}/${timerId}`);
+    try {
+        await remove(timerRef);
+        showToast("Timer deleted.", "success");
+    } catch (error) {
+        console.error("Error deleting timer:", error);
+        showToast("Failed to delete timer.", "error");
+    }
+}
+
+async function updateTimerEnabled(appId, timerId, enabled) {
+    if (!realtimeDb) {
+        showToast("Database not ready", "error");
+        return;
+    }
+    const { dbRef, update } = window.firebaseModules;
+    const timerRef = dbRef(realtimeDb, `timers/${appId}/${timerId}`);
+    try {
+        await update(timerRef, { enabled });
+    } catch (error) {
+        console.error("Error updating timer:", error);
+        showToast("Failed to update timer.", "error");
     }
 }
 
@@ -2806,32 +3187,25 @@ async function checkTimers() {
     try {
         const snapshot = await get(timersRef);
         if (snapshot.exists()) {
-            const timers = snapshot.val();
+            const allTimers = snapshot.val();
             const now = new Date();
             const currentTime = now.getHours().toString().padStart(2, '0') + ":" + now.getMinutes().toString().padStart(2, '0');
 
-            for (const appId in timers) {
-                const timerData = timers[appId];
-                if (timerData.enabled) {
-                    const appliance = appliances.find(a => a.id == appId);
-                    if (!appliance) continue;
+            for (const appId in allTimers) {
+                const applianceTimers = allTimers[appId];
+                const appliance = appliances.find(a => a.id == appId);
+                if (!appliance) continue;
 
-                    if (timerData.onTime === currentTime) {
+                for (const timerId in applianceTimers) {
+                    const timerData = applianceTimers[timerId];
+                    if (timerData.enabled && timerData.time === currentTime) {
                         if (appliance.type === 'light') {
-                            publishMessage(`homeautomation/project/light/${appliance.deviceId}/set`, "ON");
+                            publishMessage(`homeautomation/project/light/${appliance.deviceId}/set`, timerData.action);
                         } else if (appliance.type === 'fan') {
-                            // Turn fan on to a default speed (e.g., 75%)
-                            setFanSpeed(appliance.id, 75);
+                            const speed = timerData.action === 'ON' ? 75 : 0;
+                            setFanSpeed(appliance.id, speed);
                         }
-                        addLog(`Timer ON for ${appliance.name}`, 'timer');
-                    }
-                    if (timerData.offTime === currentTime) {
-                         if (appliance.type === 'light') {
-                            publishMessage(`homeautomation/project/light/${appliance.deviceId}/set`, "OFF");
-                        } else if (appliance.type === 'fan') {
-                            setFanSpeed(appliance.id, 0);
-                        }
-                        addLog(`Timer OFF for ${appliance.name}`, 'timer');
+                        addLog(`Timer ${timerData.action} for ${appliance.name}`, 'timer');
                     }
                 }
             }
@@ -2881,26 +3255,45 @@ function checkSmartLighting() {
 
 async function loadTimers() {
     if (!realtimeDb) return;
-    const { dbRef, get } = window.firebaseModules;
-    const timersRef = dbRef(realtimeDb, 'timers');
-    try {
-        const snapshot = await get(timersRef);
-        if (snapshot.exists()) {
-            const timers = snapshot.val();
-            for (const appId in timers) {
-                const timerData = timers[appId];
-                const onTimeInput = document.getElementById(`on-time-${appId}`);
-                const offTimeInput = document.getElementById(`off-time-${appId}`);
-                const enableInput = document.getElementById(`timer-enable-${appId}`);
-
-                if (onTimeInput) onTimeInput.value = timerData.onTime || '';
-                if (offTimeInput) offTimeInput.value = timerData.offTime || '';
-                if (enableInput) enableInput.checked = timerData.enabled || false;
+    const { dbRef, onValue } = window.firebaseModules;
+    
+    appliances.forEach(app => {
+        const timersRef = dbRef(realtimeDb, `timers/${app.id}`);
+        onValue(timersRef, (snapshot) => {
+            const timerListEl = document.getElementById(`timer-list-${app.id}`);
+            if (!timerListEl) return;
+            
+            timerListEl.innerHTML = ''; // Clear the list
+            
+            if (snapshot.exists()) {
+                const timers = snapshot.val();
+                for (const timerId in timers) {
+                    const timer = timers[timerId];
+                    const timerEl = document.createElement('div');
+                    timerEl.className = 'flex items-center justify-between bg-gray-100 p-2 rounded-lg';
+                    timerEl.innerHTML = `
+                        <div class="flex items-center gap-2">
+                            <span class="font-semibold">${timer.time}</span>
+                            <span class="text-sm ${timer.action === 'ON' ? 'text-green-600' : 'text-red-600'}">${timer.action}</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <label class="toggle-switch" style="width: 42px; height: 24px;">
+                                <input type="checkbox" onchange="updateTimerEnabled(${app.id}, '${timerId}', this.checked)" class="toggle-checkbox" ${timer.enabled ? 'checked' : ''}>
+                                <div class="toggle-track" style="border-radius: 12px;"></div>
+                                <span class="toggle-thumb" style="width: 20px; height: 20px; top: 2px; left: 2px;"></span>
+                            </label>
+                            <button onclick="deleteTimer(${app.id}, '${timerId}')" class="text-gray-500 hover:text-red-600">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                            </button>
+                        </div>
+                    `;
+                    timerListEl.appendChild(timerEl);
+                }
+            } else {
+                timerListEl.innerHTML = '<p class="text-xs text-gray-500 text-center">No timers set for this device.</p>';
             }
-        }
-    } catch (error) {
-        console.error("Error loading timers:", error);
-    }
+        });
+    });
 }
 
 function toggleNameEdit(appId, currentName) {
@@ -3020,7 +3413,7 @@ function renderDevices() {
 }
 
 // Initialize Charts
-let pieChart, barChart, lightsTimelineChart, fansTimelineChart;
+let pieChart, barChart, lightsTimelineChart, fansTimelineChart, fireAlarmHistoryChart;
 let currentDeviceTimeRange = 6; // Default 6 hours
 
 // Real-time listeners for analytics
@@ -3085,7 +3478,7 @@ function initCharts() {
         },
         options: {
             responsive: true,
-            maintainAspectRatio: false,
+            maintainAspectRatio: true,
             plugins: {
                 legend: {
                     position: 'right',
@@ -3137,7 +3530,7 @@ function initCharts() {
         },
         options: {
             responsive: true,
-            maintainAspectRatio: false,
+            maintainAspectRatio: true,
             scales: {
                 y: { 
                     beginAtZero: true,
@@ -3194,7 +3587,7 @@ function initCharts() {
         },
         options: {
             responsive: true,
-            maintainAspectRatio: false,
+            maintainAspectRatio: true,
             interaction: {
                 mode: 'index',
                 intersect: false
@@ -3279,7 +3672,7 @@ function initCharts() {
         },
         options: {
             responsive: true,
-            maintainAspectRatio: false,
+            maintainAspectRatio: true,
             interaction: {
                 mode: 'index',
                 intersect: false
@@ -3363,27 +3756,7 @@ function initCharts() {
     }
 }
 
-// Page Navigation
-function switchPage(pageName) {
-    ['dashboard', 'analytics', 'logs'].forEach(page => {
-        document.getElementById(`page-${page}`).classList.add('hidden');
-    });
-    document.getElementById(`page-${pageName}`).classList.remove('hidden');
-    
-    document.querySelectorAll('.nav-tab').forEach(tab => {
-        if (tab.dataset.page === pageName) {
-            tab.classList.add('active');
-        } else {
-            tab.classList.remove('active');
-        }
-    });
-    
-    // Load sensor data when switching to analytics page
-    if (pageName === 'analytics') {
-        initSensorCharts();
-        loadSensorData(currentSensorTimeRange);
-    }
-}
+
 
 // ========== SENSOR FUNCTIONS ==========
 
@@ -3714,11 +4087,9 @@ function acknowledgeGasAlarm() {
 
 // Initialize sensor charts
 function initSensorCharts() {
-    if (tempHistoryChart) return; // Already initialized
-    
     const chartOptions = {
         responsive: true,
-        maintainAspectRatio: false,
+        maintainAspectRatio: true,
         plugins: {
             legend: { display: false }
         },
@@ -4331,7 +4702,7 @@ function initPZEMCharts() {
     
     const chartOptions = {
         responsive: true,
-        maintainAspectRatio: false,
+        maintainAspectRatio: true,
         interaction: {
             mode: 'index',
             intersect: false
@@ -4848,11 +5219,23 @@ function changePZEMTimeRange(hours) {
 
 // Page Navigation
 function switchPage(pageName) {
-    ['dashboard', 'analytics', 'logs'].forEach(page => {
-        document.getElementById(`page-${page}`).classList.add('hidden');
+    // Normalize page names and only operate on pages that exist in the DOM
+    const normalized = pageName === 'dashboard' ? 'control' : pageName;
+    const pages = ['control', 'monitor', 'analytics', 'logs', 'faults', 'menu', 'fire-alarm'];
+    pages.forEach(page => {
+        const el = document.getElementById(`page-${page}`);
+        if (el) el.classList.add('hidden');
     });
-    document.getElementById(`page-${pageName}`).classList.remove('hidden');
-    
+
+    const target = document.getElementById(`page-${normalized}`);
+    if (target) {
+        target.classList.remove('hidden');
+    } else {
+        // Fallback to control page if requested page not found
+        const fallback = document.getElementById('page-control');
+        if (fallback) fallback.classList.remove('hidden');
+    }
+
     document.querySelectorAll('.nav-tab').forEach(tab => {
         if (tab.dataset.page === pageName) {
             tab.classList.add('active');
@@ -4860,20 +5243,20 @@ function switchPage(pageName) {
             tab.classList.remove('active');
         }
     });
-    
+
     // Load data when switching pages
     if (pageName === 'analytics') {
         isAnalyticsPageActive = true;
-        
+
         // Initialize charts
         initSensorCharts();
         initPZEMCharts();
-        
+
         // Load initial data
         loadSensorData(currentSensorTimeRange);
         loadPZEMData(currentPZEMTimeRange);
         loadDeviceUsageAnalytics();
-        
+
         // Start real-time listeners for live updates
         console.log('🔴 Starting all real-time analytics listeners...');
         startSensorRealtimeListener(currentSensorTimeRange);
@@ -4888,7 +5271,7 @@ function switchPage(pageName) {
             stopPZEMRealtimeListener();
             stopDeviceUsageRealtimeListener();
         }
-        
+
         if (pageName === 'logs') {
             loadLogsFromFirebase();
             loadAlarmHistory(); // Load fire alarm history
@@ -5092,19 +5475,7 @@ Timestamp: ${new Date().toLocaleString()}`;
         }, 500);
     });
     
-    // Drawer
-    document.getElementById('drawer-open').addEventListener('click', () => {
-        document.getElementById('drawer').classList.replace('drawer-closed', 'drawer-open');
-        document.getElementById('drawer-backdrop').classList.remove('hidden');
-    });
-    
-    const closeDrawer = () => {
-        document.getElementById('drawer').classList.replace('drawer-open', 'drawer-closed');
-        document.getElementById('drawer-backdrop').classList.add('hidden');
-    };
-    
-    document.getElementById('drawer-close').addEventListener('click', closeDrawer);
-    document.getElementById('drawer-backdrop').addEventListener('click', closeDrawer);
+        // Drawer event listeners and functions (removed)
     
     // Accordion
     document.querySelectorAll('.accordion-toggle').forEach(toggle => {
@@ -5144,16 +5515,22 @@ Timestamp: ${new Date().toLocaleString()}`;
     });
     
     // Fire Alarm
-    document.getElementById('test-alarm-btn').addEventListener('click', () => {
-        publishMessage("homeautomation/project/alarm/flame", "CLEAR", true);
-        addLog("Test alarm triggered", 'alarm');
-    });
+    const testAlarmBtn = document.getElementById('test-alarm-btn');
+    if (testAlarmBtn) {
+        testAlarmBtn.addEventListener('click', () => {
+            publishMessage("homeautomation/project/alarm/flame", "CLEAR", true);
+            addLog("Test alarm triggered", 'alarm');
+        });
+    }
     
-    document.getElementById('stop-alarm-btn').addEventListener('click', () => {
-        stopAlarm();
-        publishMessage("homeautomation/project/alarm/flame", "DETECTED", true);
-        addLog("Alarm stopped", 'alarm');
-    });
+    const stopAlarmBtn = document.getElementById('stop-alarm-btn');
+    if (stopAlarmBtn) {
+        stopAlarmBtn.addEventListener('click', () => {
+            stopAlarm();
+            publishMessage("homeautomation/project/alarm/flame", "DETECTED", true);
+            addLog("Alarm stopped", 'alarm');
+        });
+    }
     
     // Voice Control
     document.getElementById('voice-btn').addEventListener('click', () => {
@@ -5197,10 +5574,20 @@ Timestamp: ${new Date().toLocaleString()}`;
     });
     
     // Fire Alarm History
-    document.getElementById('refresh-alarm-history-btn').addEventListener('click', () => {
-        loadAlarmHistory();
-        showToast("Alarm history refreshed", "success");
+    const refreshAlarmHistoryBtn = document.getElementById('refresh-alarm-history-btn');
+    if (refreshAlarmHistoryBtn) {
+        refreshAlarmHistoryBtn.addEventListener('click', () => {
+            loadAlarmHistory();
+            showToast("Alarm history refreshed", "success");
+        });
+    }
+    
+    document.getElementById('drawer-logs-btn').addEventListener('click', () => {
+        showPage('logs');
     });
+
+document.getElementById('drawer-faults-btn')?.addEventListener('click', () => showPage('faults'));
+    document.getElementById('drawer-fire-alarm-btn')?.addEventListener('click', () => showPage('fire-alarm'));
     
     // Auth State Listener - Initialize after DOM is ready
     function initAuthListener() {
@@ -5228,7 +5615,8 @@ Timestamp: ${new Date().toLocaleString()}`;
                 mainApp.classList.remove('hidden');
                 
                 // Update UI
-                document.getElementById('greeting-text').textContent = `Welcome, ${user.displayName || user.email}!`;
+                const greetingEl = document.getElementById('greeting-text-drawer');
+                if (greetingEl) greetingEl.textContent = `Welcome, ${user.displayName || user.email}!`;
                 document.getElementById('profile-display-name').textContent = user.displayName || "User";
                 document.getElementById('profile-email').textContent = user.email;
                 
@@ -5244,24 +5632,173 @@ Timestamp: ${new Date().toLocaleString()}`;
                 connectMqtt();
                 setTimeout(initCharts, 1000);
                 
-                // Initialize sensor monitoring
-                setTimeout(() => {
-                    startSensorListeners();
-                    initSensorCharts();
-                }, 1500);
-            } else {
-                console.log("User logged out");
-                currentUser = null;
+                                // Initialize sensor monitoring
                 
-                // Show auth screen
-                mainApp.classList.add('hidden');
-                signupContainer.classList.add('hidden');
-                forgotPasswordContainer.classList.add('hidden');
-                authContainer.classList.remove('hidden');
+                                setTimeout(() => {
                 
-                // Reset to dashboard
-                switchPage('dashboard');
-            }
+                                    startSensorListeners();
+                
+                                    initSensorCharts();
+                
+                                }, 1500);
+                
+                
+                
+                                // Page-specific event listeners
+                
+                                const testAlarmBtnPage = document.getElementById('test-alarm-btn-page');
+                
+                                if (testAlarmBtnPage) {
+                
+                                    testAlarmBtnPage.addEventListener('click', () => {
+                
+                                        publishMessage("homeautomation/project/alarm/flame", "CLEAR", true);
+                
+                                        addLog("Test alarm triggered", 'alarm');
+                
+                                    });
+                
+                                }
+                
+                
+                
+                                const stopAlarmBtnPage = document.getElementById('stop-alarm-btn-page');
+                
+                                if (stopAlarmBtnPage) {
+                
+                                    stopAlarmBtnPage.addEventListener('click', () => {
+                
+                                        stopAlarm();
+                
+                                        publishMessage("homeautomation/project/alarm/flame", "DETECTED", true);
+                
+                                        addLog("Alarm stopped", 'alarm');
+                
+                                    });
+                
+                                }
+                
+                
+                
+                                const refreshAlarmHistoryBtnPage = document.getElementById('refresh-alarm-history-btn-page');
+                
+                                if (refreshAlarmHistoryBtnPage) {
+                
+                                    refreshAlarmHistoryBtnPage.addEventListener('click', () => {
+                
+                                        loadAlarmHistory();
+                
+                                        showToast("Alarm history refreshed", "success");
+                
+                                    });
+                
+                                }
+                
+                
+                
+                                const drawerLogsBtn = document.getElementById('drawer-logs-btn');
+                
+                                if (drawerLogsBtn) {
+                
+                                    drawerLogsBtn.addEventListener('click', () => {
+                
+                                        showPage('logs');
+                
+                                    });
+                
+                                }
+                
+                
+                
+                                const drawerFaultsBtn = document.getElementById('drawer-faults-btn');
+                
+                                if (drawerFaultsBtn) {
+                
+                                    drawerFaultsBtn.addEventListener('click', () => showPage('faults'));
+                
+                                }
+                
+                
+                
+                                const drawerFireAlarmBtn = document.getElementById('drawer-fire-alarm-btn');
+                
+                                if (drawerFireAlarmBtn) {
+                
+                                    drawerFireAlarmBtn.addEventListener('click', () => showPage('fire-alarm'));
+                
+                                }
+                
+                
+                
+                                const logoutBtn = document.getElementById('logout-btn');
+                
+                                if (logoutBtn) {
+                
+                                    logoutBtn.addEventListener('click', async () => {
+                
+                                        const { signOut } = window.firebaseModules;
+                
+                                        const userEmail = currentUser ? currentUser.email : 'Unknown';
+                
+                                        addLog(`User logged out: ${userEmail}`, 'auth');
+                
+                                        
+                
+                                        // Stop all real-time listeners before logout
+                
+                                        isAnalyticsPageActive = false;
+                
+                                        stopSensorRealtimeListener();
+                
+                                        stopPZEMRealtimeListener();
+                
+                                        stopDeviceUsageRealtimeListener();
+                
+                                        console.log('🛑 Stopped all real-time listeners for logout');
+                
+                                        
+                
+                                        await signOut(auth);
+                
+                                        showToast("Logged out", "success");
+                
+                                        
+                
+                                        // Hide all auth screens
+                
+                                        forgotPasswordContainer.classList.add('hidden');
+                
+                                        signupContainer.classList.add('hidden');
+                
+                                    });
+                
+                                }
+                
+                            } else {
+                
+                                console.log("User logged out");
+                
+                                currentUser = null;
+                
+                                
+                
+                                // Show auth screen
+                
+                                mainApp.classList.add('hidden');
+                
+                                signupContainer.classList.add('hidden');
+                
+                                forgotPasswordContainer.classList.add('hidden');
+                
+                                authContainer.classList.remove('hidden');
+                
+                                
+                
+                                // Reset to dashboard
+                
+                                switchPage('dashboard');
+                
+                            }
         });
     }
     
@@ -5271,7 +5808,38 @@ Timestamp: ${new Date().toLocaleString()}`;
     setTimeout(initAuthListener, 500);
 });
 
-</script>
+const scrollToTopBtn = document.getElementById('scroll-to-top');
+if (scrollToTopBtn) {
+    window.addEventListener('scroll', () => {
+      if (window.scrollY > 200) {
+        scrollToTopBtn.classList.remove('hidden');
+      } else {
+        scrollToTopBtn.classList.add('hidden');
+      }
+    });
 
+    scrollToTopBtn.addEventListener('click', () => {
+      window.scrollTo({
+        top: 0,
+        behavior: 'smooth'
+      });
+    });
+}
+</script>
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const fireAlarmButton = document.getElementById('drawer-fire-alarm-btn');
+        if (fireAlarmButton) {
+            fireAlarmButton.addEventListener('click', () => {
+                setTimeout(() => {
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                }, 100); // A small delay to ensure the page is visible
+            });
+        }
+    });
+</script>
+<button id="scroll-to-top" class="hidden fixed bottom-4 right-4 bg-indigo-600 text-white rounded-full p-3 shadow-lg hover:bg-indigo-700">
+  <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path></svg>
+</button>
 </body>
 </html>
