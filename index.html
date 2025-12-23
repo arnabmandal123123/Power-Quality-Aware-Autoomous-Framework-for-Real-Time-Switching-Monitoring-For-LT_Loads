@@ -4049,7 +4049,32 @@ let recognition;
 // Runtime getter for speech synthesis - prefers native Web Speech API but falls back to AndroidTTS bridge
 function getSynthesis() {
     try {
+        // Try AndroidTTS first (native Android) - more reliable in Android WebView
+        if (window.AndroidTTS && typeof window.AndroidTTS.speak === 'function') {
+            console.log('🔊 Using AndroidTTS for speech synthesis');
+            return {
+                speak: function(text) { 
+                    try { 
+                        console.log('🔊 AndroidTTS speaking:', text);
+                        window.AndroidTTS.speak(text); 
+                    } catch(e) { 
+                        console.error('AndroidTTS.speak failed', e); 
+                    } 
+                },
+                cancel: function() { try { window.AndroidTTS.cancel(); } catch(e) {} },
+                isSpeaking: function() { 
+                    try { 
+                        return !!window.AndroidTTS && window.AndroidTTS.isSpeaking && window.AndroidTTS.isSpeaking() === true; 
+                    } catch(e) { 
+                        return false; 
+                    } 
+                }
+            };
+        }
+        
+        // Fallback to Web Speech API if available
         if (window.speechSynthesis && typeof window.speechSynthesis.speak === 'function') {
+            console.log('🔊 Using Web Speech API for speech synthesis');
             return {
                 speak: function(text) {
                     try {
@@ -4059,25 +4084,27 @@ function getSynthesis() {
                         u.pitch = 1.0;
                         u.volume = 1.0;
                         u.lang = 'en-US';
+                        console.log('🔊 Web Speech API speaking:', text);
                         window.speechSynthesis.speak(u);
-                    } catch (e) { console.warn('Web TTS speak failed', e); }
+                    } catch (e) { 
+                        console.error('Web TTS speak failed', e); 
+                    }
                 },
                 cancel: function() { try { window.speechSynthesis.cancel(); } catch(e){} },
-                isSpeaking: function() { try { return !!window.speechSynthesis && window.speechSynthesis.speaking; } catch(e) { return false; } }
-            };
-        }
-
-        if (window.AndroidTTS && typeof window.AndroidTTS.speak === 'function') {
-            return {
-                speak: function(text) { try { window.AndroidTTS.speak(text); } catch(e) { console.warn('AndroidTTS.speak failed', e); } },
-                cancel: function() { try { window.AndroidTTS.cancel(); } catch(e) {} },
-                isSpeaking: function() { try { return !!window.AndroidTTS && window.AndroidTTS.isSpeaking && window.AndroidTTS.isSpeaking() === true; } catch(e) { return false; } }
+                isSpeaking: function() { 
+                    try { 
+                        return !!window.speechSynthesis && window.speechSynthesis.speaking; 
+                    } catch(e) { 
+                        return false; 
+                    } 
+                }
             };
         }
     } catch (e) {
-        console.warn('getSynthesis error', e);
+        console.error('getSynthesis error', e);
     }
 
+    console.warn('⚠️ No TTS engine available');
     return {
         speak: function(text) { console.warn('No TTS available for:', text); },
         cancel: function() {},
@@ -4132,6 +4159,37 @@ function speak(text) {
         let commandExecuted = false;
         let responseText = "";
 
+        // Helper function to find device by name (fuzzy matching)
+        const findDeviceByName = (name, type = null) => {
+            if (!name) return null;
+            const searchName = name.toLowerCase().trim();
+            
+            // Try exact match first
+            let device = appliances.find(app => 
+                (!type || app.type === type) && 
+                app.name.toLowerCase() === searchName
+            );
+            
+            // Try partial match
+            if (!device) {
+                device = appliances.find(app => 
+                    (!type || app.type === type) && 
+                    (app.name.toLowerCase().includes(searchName) || searchName.includes(app.name.toLowerCase()))
+                );
+            }
+            
+            return device;
+        };
+        
+        // Helper function to extract device name from transcript
+        const extractDeviceName = (transcript, action) => {
+            // Remove common command words
+            let devicePart = transcript.replace(action, '').trim();
+            devicePart = devicePart.replace(/^(the|my|)\s*/i, '');
+            devicePart = devicePart.replace(/\s+(please|now)$/i, '');
+            return devicePart.trim();
+        };
+
         // NEW LOGIC: If system is locked, only allow "stop alarm" command
         if (isSystemLocked) {
             if (transcript.includes("stop alarm") || transcript.includes("silence alarm")) {
@@ -4161,7 +4219,7 @@ function speak(text) {
         // Original command processing continues here for unlocked system or "stop alarm" while locked
 
         // All lights control
-        if (transcript.includes("turn on all") || transcript.includes("all lights on")) {
+        if (transcript.includes("turn on all") || transcript.includes("all lights on") || transcript.includes("switch on all")) {
             for (let i = 1; i <= NUM_LIGHTS; i++) {
                 publishMessage(`homeautomation/project/light/${i}/set`, "ON");
             }
@@ -4170,7 +4228,7 @@ function speak(text) {
             speak(responseText);
             commandExecuted = true;
             
-        } else if (transcript.includes("turn off all") || transcript.includes("all lights off")) {
+        } else if (transcript.includes("turn off all") || transcript.includes("all lights off") || transcript.includes("switch off all")) {
             for (let i = 1; i <= NUM_LIGHTS; i++) {
                 publishMessage(`homeautomation/project/light/${i}/set`, "OFF");
             }
@@ -4180,92 +4238,199 @@ function speak(text) {
             commandExecuted = true;
             
         } 
-        // Individual light control
-        else if (transcript.match(/turn on light ([1-4])/)) {
-            const lightNum = transcript.match(/turn on light ([1-4])/)[1];
-            publishMessage(`homeautomation/project/light/${lightNum}/set`, "ON");
-            addLog(`Voice: Turn ON light ${lightNum}`, 'voice-command');
-            responseText = `Turning on light ${lightNum}`;
-            speak(responseText);
-            commandExecuted = true;
+        // Individual light control - Support both numbered and named devices
+        else if ((transcript.match(/turn on|switch on|enable|start|on/) && (transcript.includes("light") || transcript.includes("lamp"))) ||
+                 (transcript.includes("light") && transcript.includes("on") && !transcript.includes("off"))) {
+            let device = null;
             
-        } else if (transcript.match(/turn off light ([1-4])/)) {
-            const lightNum = transcript.match(/turn off light ([1-4])/)[1];
-            publishMessage(`homeautomation/project/light/${lightNum}/set`, "OFF");
-            addLog(`Voice: Turn OFF light ${lightNum}`, 'voice-command');
-            responseText = `Turning off light ${lightNum}`;
-            speak(responseText);
-            commandExecuted = true;
-        }
-        // Fan control with speed
-        else if (transcript.match(/set fan.*speed|fan.*speed.*to|fan.*percent/)) {
-            // Extract fan number and speed
-            const fanMatch = transcript.match(/fan ([1-2])/);
-            const speedMatch = transcript.match(/(\d+)\s*(?:percent|%)/);
+            // Try numbered command first (e.g., "turn on light 1")
+            const numMatch = transcript.match(/(?:light|lamp)\s*([1-4])/);
+            if (numMatch) {
+                const lightNum = parseInt(numMatch[1]);
+                device = appliances.find(app => app.type === 'light' && app.deviceId === lightNum);
+            }
             
-            const fanNum = fanMatch ? fanMatch[1] : '1';
-            let speed = speedMatch ? parseInt(speedMatch[1]) : null;
+            // If not found, try device name matching
+            if (!device) {
+                const deviceName = extractDeviceName(transcript, /turn on|switch on|enable|start|on|light|lamp/g);
+                device = findDeviceByName(deviceName, 'light');
+            }
             
-            if (speed !== null) {
-                // Clamp speed between 0-100
-                speed = Math.max(0, Math.min(100, speed));
-                publishMessage(`homeautomation/project/fan/${fanNum}/set`, speed.toString());
-                addLog(`Voice: Set fan ${fanNum} to ${speed}%`, 'voice-command');
-                responseText = `Setting fan ${fanNum} to ${speed} percent`;
+            if (device) {
+                publishMessage(`homeautomation/project/light/${device.deviceId}/set`, "ON");
+                addLog(`Voice: Turn ON ${device.name}`, 'voice-command');
+                responseText = `Turning on ${device.name}`;
                 speak(responseText);
                 commandExecuted = true;
-            } else {
-                responseText = "Please specify the speed percentage";
+            }
+            
+        } else if ((transcript.match(/turn off|switch off|disable|stop|off/) && (transcript.includes("light") || transcript.includes("lamp"))) ||
+                   (transcript.includes("light") && transcript.includes("off") && !transcript.includes(" on"))) {
+            let device = null;
+            
+            // Try numbered command first
+            const numMatch = transcript.match(/(?:light|lamp)\s*([1-4])/);
+            if (numMatch) {
+                const lightNum = parseInt(numMatch[1]);
+                device = appliances.find(app => app.type === 'light' && app.deviceId === lightNum);
+            }
+            
+            // If not found, try device name matching
+            if (!device) {
+                const deviceName = extractDeviceName(transcript, /turn off|switch off|disable|stop|off|light|lamp/g);
+                device = findDeviceByName(deviceName, 'light');
+            }
+            
+            if (device) {
+                publishMessage(`homeautomation/project/light/${device.deviceId}/set`, "OFF");
+                addLog(`Voice: Turn OFF ${device.name}`, 'voice-command');
+                responseText = `Turning off ${device.name}`;
+                speak(responseText);
                 commandExecuted = true;
             }
         }
-        // Fan speed presets
+        // Fan control with speed
+        else if (transcript.match(/set fan.*speed|fan.*speed.*to|fan.*percent/)) {
+            let device = null;
+            
+            // Extract fan number from transcript
+            const fanMatch = transcript.match(/fan\s*([1-2])/);
+            let speedMatch = transcript.match(/(\d+)\s*(?:percent|%)/);
+            
+            if (fanMatch) {
+                const fanNum = parseInt(fanMatch[1]);
+                device = appliances.find(app => app.type === 'fan' && app.deviceId === fanNum);
+            } else {
+                // Try to match by device name
+                const deviceName = extractDeviceName(transcript, /set|speed|to|percent|%/g);
+                device = findDeviceByName(deviceName, 'fan');
+            }
+            
+            let speed = speedMatch ? parseInt(speedMatch[1]) : null;
+            
+            if (device && speed !== null) {
+                // Clamp speed between 0-100
+                speed = Math.max(0, Math.min(100, speed));
+                publishMessage(`homeautomation/project/fan/${device.deviceId}/set`, speed.toString());
+                addLog(`Voice: Set ${device.name} to ${speed}%`, 'voice-command');
+                responseText = `Setting ${device.name} to ${speed} percent`;
+                speak(responseText);
+                commandExecuted = true;
+            } else if (device && speed === null) {
+                responseText = `Please specify the speed percentage for ${device.name}`;
+                speak(responseText);
+                commandExecuted = true;
+            }
+        }
+        // Fan speed presets with device name support
         else if (transcript.match(/fan.*(low|slow)/)) {
-            const fanMatch = transcript.match(/fan ([1-2])/);
-            const fanNum = fanMatch ? fanMatch[1] : '1';
-            publishMessage(`homeautomation/project/fan/${fanNum}/set`, "25");
-            addLog(`Voice: Set fan ${fanNum} to low speed`, 'voice-command');
-            responseText = `Setting fan ${fanNum} to low speed`;
-            speak(responseText);
-            commandExecuted = true;
-            commandExecuted = true;
+            let device = null;
+            const fanMatch = transcript.match(/fan\s*([1-2])/);
+            
+            if (fanMatch) {
+                const fanNum = parseInt(fanMatch[1]);
+                device = appliances.find(app => app.type === 'fan' && app.deviceId === fanNum);
+            } else {
+                const deviceName = extractDeviceName(transcript, /low|slow/g);
+                device = findDeviceByName(deviceName, 'fan');
+                // Fallback to first fan if no specific device found
+                if (!device) device = appliances.find(app => app.type === 'fan');
+            }
+            
+            if (device) {
+                publishMessage(`homeautomation/project/fan/${device.deviceId}/set`, "25");
+                addLog(`Voice: Set ${device.name} to low speed`, 'voice-command');
+                responseText = `Setting ${device.name} to low speed`;
+                speak(responseText);
+                commandExecuted = true;
+            }
             
         } else if (transcript.match(/fan.*(medium|mid)/)) {
-            const fanMatch = transcript.match(/fan ([1-2])/);
-            const fanNum = fanMatch ? fanMatch[1] : '1';
-            publishMessage(`homeautomation/project/fan/${fanNum}/set`, "50");
-            addLog(`Voice: Set fan ${fanNum} to medium speed`, 'voice-command');
-            responseText = `Setting fan ${fanNum} to medium speed`;
-            speak(responseText);
-            commandExecuted = true;
+            let device = null;
+            const fanMatch = transcript.match(/fan\s*([1-2])/);
+            
+            if (fanMatch) {
+                const fanNum = parseInt(fanMatch[1]);
+                device = appliances.find(app => app.type === 'fan' && app.deviceId === fanNum);
+            } else {
+                const deviceName = extractDeviceName(transcript, /medium|mid/g);
+                device = findDeviceByName(deviceName, 'fan');
+                if (!device) device = appliances.find(app => app.type === 'fan');
+            }
+            
+            if (device) {
+                publishMessage(`homeautomation/project/fan/${device.deviceId}/set`, "50");
+                addLog(`Voice: Set ${device.name} to medium speed`, 'voice-command');
+                responseText = `Setting ${device.name} to medium speed`;
+                speak(responseText);
+                commandExecuted = true;
+            }
             
         } else if (transcript.match(/fan.*(high|fast|max|full)/)) {
-            const fanMatch = transcript.match(/fan ([1-2])/);
-            const fanNum = fanMatch ? fanMatch[1] : '1';
-            publishMessage(`homeautomation/project/fan/${fanNum}/set`, "100");
-            addLog(`Voice: Set fan ${fanNum} to high speed`, 'voice-command');
-            responseText = `Setting fan ${fanNum} to high speed`;
-            speak(responseText);
-            commandExecuted = true;
-        }
-        // Fan on/off (keep original commands)
-        else if (transcript.includes("turn on fan") || transcript.includes("fan on")) {
-            const fanMatch = transcript.match(/fan ([1-2])/);
-            const fanNum = fanMatch ? fanMatch[1] : '1';
-            publishMessage(`homeautomation/project/fan/${fanNum}/set`, "75");
-            addLog(`Voice: Turn ON fan ${fanNum}`, 'voice-command');
-            responseText = `Turning on fan ${fanNum}`;
-            speak(responseText);
-            commandExecuted = true;
+            let device = null;
+            const fanMatch = transcript.match(/fan\s*([1-2])/);
             
-        } else if (transcript.includes("turn off fan") || transcript.includes("fan off")) {
-            const fanMatch = transcript.match(/fan ([1-2])/);
-            const fanNum = fanMatch ? fanMatch[1] : '1';
-            publishMessage(`homeautomation/project/fan/${fanNum}/set`, "0");
-            addLog(`Voice: Turn OFF fan ${fanNum}`, 'voice-command');
-            responseText = `Turning off fan ${fanNum}`;
-            speak(responseText);
-            commandExecuted = true;
+            if (fanMatch) {
+                const fanNum = parseInt(fanMatch[1]);
+                device = appliances.find(app => app.type === 'fan' && app.deviceId === fanNum);
+            } else {
+                const deviceName = extractDeviceName(transcript, /high|fast|max|full/g);
+                device = findDeviceByName(deviceName, 'fan');
+                if (!device) device = appliances.find(app => app.type === 'fan');
+            }
+            
+            if (device) {
+                publishMessage(`homeautomation/project/fan/${device.deviceId}/set`, "100");
+                addLog(`Voice: Set ${device.name} to high speed`, 'voice-command');
+                responseText = `Setting ${device.name} to high speed`;
+                speak(responseText);
+                commandExecuted = true;
+            }
+        }
+        // Fan on/off with device name support
+        else if ((transcript.match(/turn on|switch on|start|enable|on/) && transcript.includes("fan")) ||
+                 (transcript.includes("fan") && transcript.includes("on") && !transcript.includes("off"))) {
+            let device = null;
+            const fanMatch = transcript.match(/fan\s*([1-2])/);
+            
+            if (fanMatch) {
+                const fanNum = parseInt(fanMatch[1]);
+                device = appliances.find(app => app.type === 'fan' && app.deviceId === fanNum);
+            } else {
+                const deviceName = extractDeviceName(transcript, /turn on|switch on|start|enable|on|fan/g);
+                device = findDeviceByName(deviceName, 'fan');
+                if (!device) device = appliances.find(app => app.type === 'fan');
+            }
+            
+            if (device) {
+                publishMessage(`homeautomation/project/fan/${device.deviceId}/set`, "75");
+                addLog(`Voice: Turn ON ${device.name}`, 'voice-command');
+                responseText = `Turning on ${device.name}`;
+                speak(responseText);
+                commandExecuted = true;
+            }
+            
+        } else if ((transcript.match(/turn off|switch off|stop|disable|off/) && transcript.includes("fan")) ||
+                   (transcript.includes("fan") && transcript.includes("off") && !transcript.includes(" on"))) {
+            let device = null;
+            const fanMatch = transcript.match(/fan\s*([1-2])/);
+            
+            if (fanMatch) {
+                const fanNum = parseInt(fanMatch[1]);
+                device = appliances.find(app => app.type === 'fan' && app.deviceId === fanNum);
+            } else {
+                const deviceName = extractDeviceName(transcript, /turn off|switch off|stop|disable|off|fan/g);
+                device = findDeviceByName(deviceName, 'fan');
+                if (!device) device = appliances.find(app => app.type === 'fan');
+            }
+            
+            if (device) {
+                publishMessage(`homeautomation/project/fan/${device.deviceId}/set`, "0");
+                addLog(`Voice: Turn OFF ${device.name}`, 'voice-command');
+                responseText = `Turning off ${device.name}`;
+                speak(responseText);
+                commandExecuted = true;
+            }
         }
         // Temperature and sensor queries
         else if (transcript.includes("what is the temperature") || transcript.includes("temperature")) {
@@ -4318,7 +4483,7 @@ function speak(text) {
             }
         }
         // Sensor Data Query
-        else if (transcript.includes("what is the gas level") || transcript.includes("gas level")) {
+        else if (transcript.includes("gas") && (transcript.includes("level") || transcript.includes("what") || transcript.includes("show"))) {
             const gasElement = document.getElementById('sensor-gas');
             if (gasElement && gasElement.textContent && gasElement.textContent !== '--%') {
                 const gas = gasElement.textContent;
@@ -4328,9 +4493,10 @@ function speak(text) {
                 responseText = "Gas level data is not available yet";
                 console.warn("⚠️ Gas element not found or no data");
             }
+            speak(responseText);
             commandExecuted = true;
         }
-        else if (transcript.includes("show me motion status") || transcript.includes("is there any motion") || transcript.includes("motion status")) {
+        else if (transcript.includes("motion") && (transcript.includes("status") || transcript.includes("detect") || transcript.includes("any"))) {
             const motionElement = document.getElementById('sensor-motion');
             if (motionElement && motionElement.textContent) {
                 const motionStatus = motionElement.textContent;
@@ -4340,9 +4506,10 @@ function speak(text) {
                 responseText = "Motion sensor data is not available yet";
                 console.warn("⚠️ Motion element not found or no data");
             }
+            speak(responseText);
             commandExecuted = true;
         }
-        else if (transcript.includes("what is the current power consumption") || transcript.includes("power consumption")) {
+        else if (transcript.includes("power") && (transcript.includes("consumption") || transcript.includes("usage") || transcript.includes("using"))) {
             const powerElement = document.getElementById('pzem-power');
             if (powerElement && powerElement.textContent && powerElement.textContent !== '-- W') {
                 const power = powerElement.textContent;
@@ -4352,9 +4519,10 @@ function speak(text) {
                 responseText = "Power consumption data is not available yet";
                 console.warn("⚠️ Power element not found or no data");
             }
+            speak(responseText);
             commandExecuted = true;
         }
-        else if (transcript.includes("what is the current voltage") || transcript.includes("current voltage")) {
+        else if (transcript.includes("voltage") || (transcript.includes("volt") && (transcript.includes("what") || transcript.includes("current")))) {
             const voltageElement = document.getElementById('pzem-voltage');
             if (voltageElement && voltageElement.textContent && voltageElement.textContent !== '-- V') {
                 const voltage = voltageElement.textContent;
@@ -4364,14 +4532,40 @@ function speak(text) {
                 responseText = "Voltage data is not available yet";
                 console.warn("⚠️ Voltage element not found or no data");
             }
+            speak(responseText);
+            commandExecuted = true;
+        }
+        else if (transcript.includes("current") && (transcript.includes("amp") || transcript.includes("draw"))) {
+            const currentElement = document.getElementById('pzem-current');
+            if (currentElement && currentElement.textContent && currentElement.textContent !== '-- A') {
+                const current = currentElement.textContent;
+                responseText = `The current draw is ${current}`;
+                console.log(`⚡ Current: ${current}`);
+            } else {
+                responseText = "Current data is not available yet";
+                console.warn("⚠️ Current element not found or no data");
+            }
+            speak(responseText);
+            commandExecuted = true;
+        }
+        else if (transcript.includes("energy") && (transcript.includes("total") || transcript.includes("consumed") || transcript.includes("used"))) {
+            const energyElement = document.getElementById('pzem-energy');
+            if (energyElement && energyElement.textContent && energyElement.textContent !== '-- kWh') {
+                const energy = energyElement.textContent;
+                responseText = `The total energy consumed is ${energy}`;
+                console.log(`⚡ Energy: ${energy}`);
+            } else {
+                responseText = "Energy data is not available yet";
+                console.warn("⚠️ Energy element not found or no data");
+            }
+            speak(responseText);
             commandExecuted = true;
         }
         
-        // Provide feedback
-        if (commandExecuted) {
-            speak(responseText);
+        // Provide feedback only if no response was already given
+        if (commandExecuted && responseText) {
             showToast(responseText, "success");
-        } else {
+        } else if (!commandExecuted) {
             responseText = "Sorry, I didn't understand that command";
             speak(responseText);
             showToast(responseText, "error");
