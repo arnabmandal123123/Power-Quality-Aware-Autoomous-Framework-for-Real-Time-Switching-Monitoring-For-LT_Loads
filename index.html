@@ -15,6 +15,8 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <!-- Chart.js Date Adapter for time-based charts -->
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    <!-- SheetJS for Excel export -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
     
     <!-- Firebase SDK v9+ (Modular) -->
     <script type="module">
@@ -1348,6 +1350,7 @@
                         <button class="time-range-btn px-4 py-2 rounded-lg bg-gray-200" data-range="168" onclick="changeSensorTimeRange(168)">7D</button>
                         <button class="time-range-btn px-4 py-2 rounded-lg bg-gray-200" data-range="8760" onclick="changeSensorTimeRange(8760)">365D</button>
                         <button class="time-range-btn px-4 py-2 rounded-lg bg-gray-200" data-range="-1" onclick="changeSensorTimeRange(-1)">ALL</button>
+                        <button class="px-4 py-2 rounded-lg bg-green-600 text-white hover:bg-green-700" onclick="exportSensorData()">📥 Excel</button>
                     </div>
                 </div>
                 
@@ -1379,6 +1382,7 @@
                         <button class="pzem-time-range-btn px-4 py-2 rounded-lg bg-gray-200" data-range="720" onclick="changePZEMTimeRange(720)">30D</button>
                         <button class="pzem-time-range-btn px-4 py-2 rounded-lg bg-gray-200" data-range="8760" onclick="changePZEMTimeRange(8760)">365D</button>
                         <button class="pzem-time-range-btn px-4 py-2 rounded-lg bg-gray-200" data-range="-1" onclick="changePZEMTimeRange(-1)">ALL</button>
+                        <button class="px-4 py-2 rounded-lg bg-green-600 text-white hover:bg-green-700" onclick="exportPZEMData()">📥 Excel</button>
                     </div>
                 </div>
                 
@@ -1535,11 +1539,11 @@
                 <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-3">
                     <h2 class="text-2xl font-bold text-gray-800">Logs</h2>
                     <div class="flex flex-wrap gap-2">
-                        <button id="export-logs-pdf-btn" class="btn bg-blue-500 hover:bg-blue-600 text-sm">
-                            <svg class="w-4 h-4 inline mr-1" fill="currentColor" viewBox="0 0 20 20"><path d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z"/></svg>
-                            PDF
+                        <button id="export-logs-excel-btn" class="btn bg-green-600 hover:bg-green-700 text-sm">
+                            <svg class="w-4 h-4 inline mr-1" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+                            Excel
                         </button>
-                        <button id="export-logs-btn" class="btn bg-green-500 hover:bg-green-600 text-sm">
+                        <button id="export-logs-btn" class="btn bg-blue-500 hover:bg-blue-600 text-sm">
                             <svg class="w-4 h-4 inline mr-1" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
                             TXT
                         </button>
@@ -7143,6 +7147,90 @@ function changeSensorTimeRange(hours) {
     }
 }
 
+// Export sensor data to Excel
+async function exportSensorData() {
+    if (!realtimeDb) {
+        showToast("Firebase not ready", "error");
+        return;
+    }
+    
+    try {
+        showToast("Preparing Excel file...", "info");
+        
+        const { dbRef, get } = window.firebaseModules;
+        const historyRef = dbRef(realtimeDb, 'sensors/history');
+        const snapshot = await get(historyRef);
+        
+        if (!snapshot.exists()) {
+            showToast("No data available", "warning");
+            return;
+        }
+        
+        const data = snapshot.val();
+        const dataArray = Object.values(data);
+        
+        // Filter by current time range
+        let filteredData;
+        if (currentSensorTimeRange === -1) {
+            // ALL data
+            filteredData = dataArray;
+        } else {
+            const now = Date.now();
+            const startTime = now - (currentSensorTimeRange * 60 * 60 * 1000);
+            filteredData = dataArray.filter(d => d.timestamp >= startTime && d.timestamp <= now);
+        }
+        
+        if (filteredData.length === 0) {
+            showToast("No data in selected time range", "warning");
+            return;
+        }
+        
+        // Sort by timestamp
+        const sortedData = filteredData.sort((a, b) => a.timestamp - b.timestamp);
+        
+        // Prepare data for Excel
+        const excelData = sortedData.map(record => ({
+            'Timestamp': new Date(record.timestamp).toLocaleString(),
+            'Temperature (°C)': parseFloat(record.temperature || 0).toFixed(2),
+            'Humidity (%)': parseFloat(record.humidity || 0).toFixed(2),
+            'Gas Level (0-1024)': parseInt(record.gasLevel || 0),
+            'Gas Alarm': record.gasAlarm ? 'DETECTED' : 'CLEAR',
+            'Motion': record.motion ? 'DETECTED' : 'NONE'
+        }));
+        
+        // Create workbook
+        const wb = XLSX.utils.book_new();
+        const ws = XLSX.utils.json_to_sheet(excelData);
+        
+        // Set column widths
+        ws['!cols'] = [
+            { wch: 20 }, // Timestamp
+            { wch: 15 }, // Temperature
+            { wch: 15 }, // Humidity
+            { wch: 15 }, // Gas Level
+            { wch: 12 }, // Gas Alarm
+            { wch: 12 }  // Motion
+        ];
+        
+        XLSX.utils.book_append_sheet(wb, ws, 'Sensor Data');
+        
+        // Generate filename with date range
+        const timeRangeLabel = currentSensorTimeRange === -1 ? 'ALL' : 
+                              (currentSensorTimeRange >= 24 ? `${currentSensorTimeRange/24}D` : `${currentSensorTimeRange}H`);
+        const filename = `SensorData_${timeRangeLabel}_${new Date().toISOString().split('T')[0]}.xlsx`;
+        
+        // Download file
+        XLSX.writeFile(wb, filename);
+        
+        showToast(`Downloaded ${sortedData.length} records`, "success");
+        addLog(`📥 Sensor data exported (${sortedData.length} records)`, 'system');
+        
+    } catch (error) {
+        console.error('Error exporting sensor data:', error);
+        showToast("Export failed: " + error.message, "error");
+    }
+}
+
 // ========== PZEM ANALYTICS FUNCTIONS ==========
 
 // Initialize PZEM charts
@@ -7738,76 +7826,187 @@ function changePZEMTimeRange(hours) {
     }
 }
 
+// Export PZEM data to Excel
+async function exportPZEMData() {
+    if (!realtimeDb) {
+        showToast("Firebase not ready", "error");
+        return;
+    }
+    
+    try {
+        showToast("Preparing Excel file...", "info");
+        
+        const { dbRef, get } = window.firebaseModules;
+        const historyRef = dbRef(realtimeDb, 'powerMonitor/history');
+        const snapshot = await get(historyRef);
+        
+        if (!snapshot.exists()) {
+            showToast("No data available", "warning");
+            return;
+        }
+        
+        const data = snapshot.val();
+        const dataArray = Object.values(data);
+        
+        // Filter by current time range
+        let filteredData;
+        if (currentPZEMTimeRange === -1) {
+            // ALL data
+            filteredData = dataArray;
+        } else {
+            const now = Date.now();
+            const startTime = now - (currentPZEMTimeRange * 60 * 60 * 1000);
+            filteredData = dataArray.filter(d => d.timestamp >= startTime && d.timestamp <= now);
+        }
+        
+        if (filteredData.length === 0) {
+            showToast("No data in selected time range", "warning");
+            return;
+        }
+        
+        // Sort by timestamp
+        const sortedData = filteredData.sort((a, b) => a.timestamp - b.timestamp);
+        
+        // Prepare data for Excel
+        const excelData = sortedData.map(record => ({
+            'Timestamp': new Date(record.timestamp).toLocaleString(),
+            'Voltage (V)': parseFloat(record.voltage || 0).toFixed(2),
+            'Current (A)': parseFloat(record.current || 0).toFixed(3),
+            'Power (W)': parseFloat(record.power || 0).toFixed(2),
+            'Energy (kWh)': parseFloat(record.energy || 0).toFixed(3),
+            'Frequency (Hz)': parseFloat(record.frequency || 0).toFixed(2),
+            'Power Factor': parseFloat(record.powerFactor || 0).toFixed(3)
+        }));
+        
+        // Create workbook
+        const wb = XLSX.utils.book_new();
+        const ws = XLSX.utils.json_to_sheet(excelData);
+        
+        // Set column widths
+        ws['!cols'] = [
+            { wch: 20 }, // Timestamp
+            { wch: 12 }, // Voltage
+            { wch: 12 }, // Current
+            { wch: 12 }, // Power
+            { wch: 14 }, // Energy
+            { wch: 14 }, // Frequency
+            { wch: 14 }  // Power Factor
+        ];
+        
+        XLSX.utils.book_append_sheet(wb, ws, 'Power Monitor Data');
+        
+        // Calculate statistics for summary sheet
+        const avgVoltage = (sortedData.reduce((sum, r) => sum + (r.voltage || 0), 0) / sortedData.length).toFixed(2);
+        const avgCurrent = (sortedData.reduce((sum, r) => sum + (r.current || 0), 0) / sortedData.length).toFixed(3);
+        const avgPower = (sortedData.reduce((sum, r) => sum + (r.power || 0), 0) / sortedData.length).toFixed(2);
+        const maxPower = Math.max(...sortedData.map(r => r.power || 0)).toFixed(2);
+        const totalEnergy = (sortedData[sortedData.length - 1]?.energy || 0).toFixed(3);
+        
+        const summaryData = [
+            { 'Metric': 'Average Voltage', 'Value': avgVoltage + ' V' },
+            { 'Metric': 'Average Current', 'Value': avgCurrent + ' A' },
+            { 'Metric': 'Average Power', 'Value': avgPower + ' W' },
+            { 'Metric': 'Peak Power', 'Value': maxPower + ' W' },
+            { 'Metric': 'Total Energy', 'Value': totalEnergy + ' kWh' },
+            { 'Metric': 'Total Records', 'Value': sortedData.length },
+            { 'Metric': 'Time Range', 'Value': currentPZEMTimeRange === -1 ? 'ALL' : (currentPZEMTimeRange >= 24 ? `${currentPZEMTimeRange/24} Days` : `${currentPZEMTimeRange} Hours`) },
+            { 'Metric': 'Export Date', 'Value': new Date().toLocaleString() }
+        ];
+        
+        const wsSummary = XLSX.utils.json_to_sheet(summaryData);
+        wsSummary['!cols'] = [{ wch: 20 }, { wch: 20 }];
+        XLSX.utils.book_append_sheet(wb, wsSummary, 'Summary');
+        
+        // Generate filename with date range
+        const timeRangeLabel = currentPZEMTimeRange === -1 ? 'ALL' : 
+                              (currentPZEMTimeRange >= 24 ? `${currentPZEMTimeRange/24}D` : `${currentPZEMTimeRange}H`);
+        const filename = `PowerMonitor_${timeRangeLabel}_${new Date().toISOString().split('T')[0]}.xlsx`;
+        
+        // Download file
+        XLSX.writeFile(wb, filename);
+        
+        showToast(`Downloaded ${sortedData.length} records`, "success");
+        addLog(`📥 Power monitor data exported (${sortedData.length} records)`, 'system');
+        
+    } catch (error) {
+        console.error('Error exporting PZEM data:', error);
+        showToast("Export failed: " + error.message, "error");
+    }
+}
+
 // ========== END PZEM ANALYTICS FUNCTIONS ==========
 
 // ========== END SENSOR FUNCTIONS ==========
 
-// Export logs to PDF
-function exportLogsToPDF() {
+// Export logs to Excel
+function exportLogsToExcel() {
     if (logEntries.length === 0) {
         showToast("No logs to export", "warning");
         return;
     }
     
-    const date = new Date().toISOString().split('T')[0];
-    const time = new Date().toLocaleTimeString();
-    
-    // Create HTML content for PDF
-    let htmlContent = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="UTF-8">
-            <title>Smart Home Activity Logs</title>
-            <style>
-                body { font-family: Arial, sans-serif; padding: 20px; }
-                h1 { color: #4F46E5; border-bottom: 2px solid #4F46E5; padding-bottom: 10px; }
-                .meta { color: #666; font-size: 12px; margin-bottom: 20px; }
-                .log-entry { padding: 8px; border-bottom: 1px solid #e5e7eb; font-size: 13px; }
-                .log-entry:nth-child(even) { background-color: #f9fafb; }
-                .time { color: #0891b2; font-weight: bold; }
-                .user { color: #2563eb; font-weight: bold; }
-                .category { color: #7c3aed; font-style: italic; }
-            </style>
-        </head>
-        <body>
-            <h1>Smart Home Activity Logs</h1>
-            <div class="meta">
-                <p><strong>Exported:</strong> ${date} at ${time}</p>
-                <p><strong>Total Entries:</strong> ${logEntries.length}</p>
-            </div>
-            <div class="logs">
-    `;
-    
-    logEntries.forEach(entry => {
-        const userText = entry.user ? `<span class="user">[${entry.user}]</span>` : '';
-        const categoryText = entry.category && entry.category !== 'general' ? `<span class="category">[${entry.category}]</span>` : '';
-        htmlContent += `
-            <div class="log-entry">
-                <span class="time">[${entry.date} ${entry.time}]</span>
-                ${userText}
-                ${categoryText}
-                ${entry.text}
-            </div>
-        `;
-    });
-    
-    htmlContent += `
-            </div>
-        </body>
-        </html>
-    `;
-    
-    // Create a new window and print
-    const printWindow = window.open('', '_blank');
-    printWindow.document.write(htmlContent);
-    printWindow.document.close();
-    
-    // Wait for content to load then print
-    printWindow.onload = function() {
-        printWindow.print();
-        showToast("PDF export initiated - use Print to PDF", "success");
-    };
+    try {
+        showToast("Preparing Excel file...", "info");
+        
+        // Prepare data for Excel
+        const excelData = logEntries.map(entry => ({
+            'Date': entry.date || new Date(entry.timestamp).toLocaleDateString(),
+            'Time': entry.time,
+            'User': entry.user || 'System',
+            'Category': entry.category || 'general',
+            'Activity': entry.text
+        }));
+        
+        // Create workbook
+        const wb = XLSX.utils.book_new();
+        const ws = XLSX.utils.json_to_sheet(excelData);
+        
+        // Set column widths
+        ws['!cols'] = [
+            { wch: 12 }, // Date
+            { wch: 12 }, // Time
+            { wch: 20 }, // User
+            { wch: 15 }, // Category
+            { wch: 60 }  // Activity
+        ];
+        
+        XLSX.utils.book_append_sheet(wb, ws, 'Activity Logs');
+        
+        // Create summary sheet
+        const categoryCount = {};
+        logEntries.forEach(entry => {
+            const cat = entry.category || 'general';
+            categoryCount[cat] = (categoryCount[cat] || 0) + 1;
+        });
+        
+        const summaryData = [
+            { 'Metric': 'Total Entries', 'Value': logEntries.length },
+            { 'Metric': 'Export Date', 'Value': new Date().toLocaleString() },
+            { 'Metric': '', 'Value': '' },
+            { 'Metric': 'By Category', 'Value': '' },
+            ...Object.entries(categoryCount).map(([cat, count]) => ({
+                'Metric': `  ${cat}`,
+                'Value': count
+            }))
+        ];
+        
+        const wsSummary = XLSX.utils.json_to_sheet(summaryData);
+        wsSummary['!cols'] = [{ wch: 25 }, { wch: 20 }];
+        XLSX.utils.book_append_sheet(wb, wsSummary, 'Summary');
+        
+        // Generate filename
+        const filename = `ActivityLogs_${new Date().toISOString().split('T')[0]}.xlsx`;
+        
+        // Download file
+        XLSX.writeFile(wb, filename);
+        
+        showToast(`Downloaded ${logEntries.length} log entries`, "success");
+        addLog(`📥 Activity logs exported to Excel (${logEntries.length} entries)`, 'system');
+        
+    } catch (error) {
+        console.error('Error exporting logs to Excel:', error);
+        showToast("Export failed: " + error.message, "error");
+    }
 }
 
 // Page Navigation
@@ -8197,6 +8396,10 @@ Timestamp: ${new Date().toLocaleString()}`;
         showToast("Logs cleared", "success");
     });
     
+    document.getElementById('export-logs-excel-btn').addEventListener('click', () => {
+        exportLogsToExcel();
+    });
+    
     document.getElementById('export-logs-btn').addEventListener('click', () => {
         const text = logEntries.map(e => `[${e.time}] ${e.user ? `[${e.user}]` : ''} ${e.text}`).join('\n');
         const blob = new Blob([text], { type: 'text/plain' });
@@ -8206,10 +8409,6 @@ Timestamp: ${new Date().toLocaleString()}`;
         a.download = `logs-${new Date().toISOString().split('T')[0]}.txt`;
         a.click();
         showToast("Logs exported as TXT", "success");
-    });
-    
-    document.getElementById('export-logs-pdf-btn').addEventListener('click', () => {
-        exportLogsToPDF();
     });
     
     // Fire Alarm History
