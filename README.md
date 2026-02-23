@@ -1,10 +1,9 @@
-# Smart Home Automation System - Project Report
+#Power-Quality-Aware Autonomous Cyber-Physical Framework for Real-Time Switching, Monitoring, Predictive Protection for Low-Voltage Distribution Networks 
 
-**Project Title:** IoT-Based Smart Home Automation System with Energy Monitoring and Multi-Platform Control
-
+**Project Title:** Power-Quality-Aware Autonomous Cyber-Physical Framework for Real-Time Switching, Monitoring, Predictive Protection for Low-Voltage Distribution Networks 
 **Academic Year:** 2025-2026 (5th Semester)
 
-**Submitted By:** [Your Name]
+**Submitted By:** [arnab mandal]
 
 **Date:** January 21, 2026
 
